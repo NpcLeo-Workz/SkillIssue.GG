@@ -1,7 +1,7 @@
 <Solution>
-  <Project Path="SkillIssue.GG.Analysis/SkillIssue.GG.Analysis.csproj" />
-  <Project Path="SkillIssue.GG.Application/SkillIssue.GG.Application.csproj" />
-  <Project Path="SkillIssue.GG.Domain/SkillIssue.GG.Domain.csproj" />
-  <Project Path="SkillIssue.GG.Infrastructure/SkillIssue.GG.Infrastructure.csproj" />
-  <Project Path="SkillIssue.GG.Web/SkillIssue.GG.Web.csproj" />
+  <Project Path="src/SkillIssue.GG.Analysis/SkillIssue.GG.Analysis.csproj" />
+  <Project Path="src/SkillIssue.GG.Application/SkillIssue.GG.Application.csproj" />
+  <Project Path="src/SkillIssue.GG.Domain/SkillIssue.GG.Domain.csproj" />
+  <Project Path="src/SkillIssue.GG.Infrastructure/SkillIssue.GG.Infrastructure.csproj" />
+  <Project Path="src/SkillIssue.GG.Web/SkillIssue.GG.Web.csproj" />
 </Solution>
