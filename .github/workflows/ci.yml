@@ -5,6 +5,15 @@ on:
     branches:
       - main
       - development
+      - 'feature/**'
+      - 'fix/**'
+      - 'bugfix/**'
+      - 'hotfix/**'
+      - 'refactor/**'
+      - 'test/**'
+      - 'docs/**'
+      - 'chore/**'
+      - 'ci/**'
 
   pull_request:
     branches:
