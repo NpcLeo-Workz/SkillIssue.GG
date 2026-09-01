@@ -6,7 +6,12 @@ public class Player
     public string GamePlayerId { get; private set; }
     public string Name { get; private set; }
     public string Region { get; private set; }
-    private Player() { }
+    private Player()
+    {
+        GamePlayerId = string.Empty;
+        Name = string.Empty;
+        Region = string.Empty;
+    }
     public Player(
         string gamePlayerId,
         string name,
