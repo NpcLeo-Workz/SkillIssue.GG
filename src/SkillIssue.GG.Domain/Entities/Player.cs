@@ -43,4 +43,17 @@ public class Player
         Name = name;
         Region = region;
     }
+
+    public bool MatchesPuuid(string playerPuuid)
+    {
+        if (string.IsNullOrWhiteSpace(playerPuuid))
+        {
+            return false;
+        }
+
+        return string.Equals(
+            GamePlayerId,
+            playerPuuid,
+            StringComparison.Ordinal);
+    }
 }

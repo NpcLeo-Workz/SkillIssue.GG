@@ -46,6 +46,14 @@ public class MatchParticipant
 
     public bool Won { get; private set; }
 
+    private readonly List<int> _itemIds = [];
+
+    public IReadOnlyCollection<int> ItemIds => _itemIds;
+
+    private readonly List<int> _runeIds = [];
+
+    public IReadOnlyCollection<int> RuneIds => _runeIds;
+
     private MatchParticipant()
     {
         PlayerPuuid = string.Empty;
@@ -180,5 +188,45 @@ public class MatchParticipant
         TotalDamageTaken = totalDamageTaken;
         TimePlayed = timePlayed;
         Won = won;
+    }
+    public bool PlayedChampion(Champion champion)
+    {
+        ArgumentNullException.ThrowIfNull(champion);
+
+        return ChampionId == champion.RiotChampionId;
+    }
+
+    public void AddItem(int riotItemId)
+    {
+        if (riotItemId < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(riotItemId),
+                "Riot item ID cannot be negative.");
+        }
+
+        if (riotItemId == 0)
+        {
+            return;
+        }
+
+        _itemIds.Add(riotItemId);
+    }
+    public void AddRune(int riotRuneId)
+    {
+        if (riotRuneId <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(riotRuneId),
+                "Riot rune ID must be greater than zero.");
+        }
+
+        if (_runeIds.Contains(riotRuneId))
+        {
+            throw new InvalidOperationException(
+                "Rune has already been added to this participant.");
+        }
+
+        _runeIds.Add(riotRuneId);
     }
 }
