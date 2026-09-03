@@ -137,6 +137,13 @@ public class Match
                 nameof(endedAt));
         }
 
+        if (gameCreatedAt > startedAt)
+        {
+            throw new ArgumentException(
+                "Game creation time cannot be after the match start time.",
+                nameof(gameCreatedAt));
+        }
+
         Id = Guid.NewGuid();
         RiotMatchId = riotMatchId;
         RiotGameId = riotGameId;

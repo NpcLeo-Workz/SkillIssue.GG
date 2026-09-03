@@ -14,8 +14,6 @@ public class MatchParticipant
 
     public int ChampionId { get; private set; }
 
-    public string ChampionName { get; private set; }
-
     public string TeamPosition { get; private set; }
 
     public int Kills { get; private set; }
@@ -57,7 +55,6 @@ public class MatchParticipant
     private MatchParticipant()
     {
         PlayerPuuid = string.Empty;
-        ChampionName = string.Empty;
         TeamPosition = string.Empty;
     }
 
@@ -67,7 +64,6 @@ public class MatchParticipant
         int participantId,
         int teamId,
         int championId,
-        string championName,
         string teamPosition,
         int kills,
         int deaths,
@@ -114,13 +110,6 @@ public class MatchParticipant
         {
             throw new ArgumentOutOfRangeException(
                 nameof(championId));
-        }
-
-        if (string.IsNullOrWhiteSpace(championName))
-        {
-            throw new ArgumentException(
-                "Champion name is required.",
-                nameof(championName));
         }
 
         if (kills < 0 ||
@@ -172,7 +161,6 @@ public class MatchParticipant
         ParticipantId = participantId;
         TeamId = teamId;
         ChampionId = championId;
-        ChampionName = championName;
         TeamPosition = teamPosition;
         Kills = kills;
         Deaths = deaths;

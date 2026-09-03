@@ -15,7 +15,6 @@ public class MatchParticipantTests
             1,
             100,
             266,
-            "Aatrox",
             "TOP",
             10,
             3,
@@ -38,7 +37,6 @@ public class MatchParticipantTests
         Assert.Equal(1, participant.ParticipantId);
         Assert.Equal(100, participant.TeamId);
         Assert.Equal(266, participant.ChampionId);
-        Assert.Equal("Aatrox", participant.ChampionName);
         Assert.Equal("TOP", participant.TeamPosition);
         Assert.Equal(10, participant.Kills);
         Assert.Equal(3, participant.Deaths);
@@ -89,13 +87,6 @@ public class MatchParticipantTests
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             CreateParticipant(championId: 0));
-    }
-
-    [Fact]
-    public void ThrowsWhenChampionNameIsMissing()
-    {
-        Assert.Throws<ArgumentException>(() =>
-            CreateParticipant(championName: ""));
     }
 
     [Fact]
@@ -288,7 +279,6 @@ public class MatchParticipantTests
         int participantId = 1,
         int teamId = 100,
         int championId = 266,
-        string championName = "Aatrox",
         int kills = 10,
         int deaths = 3,
         int assists = 7,
@@ -304,7 +294,6 @@ public class MatchParticipantTests
             participantId,
             teamId,
             championId,
-            championName,
             "TOP",
             kills,
             deaths,
