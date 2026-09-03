@@ -52,4 +52,46 @@ public class PlayerTests
         Assert.Throws<ArgumentException>(() => new Player(gamePlayerId, name, ""));
         Assert.Throws<ArgumentException>(() => new Player(gamePlayerId, name, "   "));
     }
+
+    [Fact]
+    public void MatchesPuuidWhenPuuidMatchesGamePlayerId()
+    {
+        var player = new Player(
+            "test-puuid",
+            "TestPlayer",
+            "EUW");
+
+        var matches = player.MatchesPuuid("test-puuid");
+
+        Assert.True(matches);
+    }
+
+    [Fact]
+    public void DoesNotMatchDifferentPuuid()
+    {
+        var player = new Player(
+            "test-puuid",
+            "TestPlayer",
+            "EUW");
+
+        var matches = player.MatchesPuuid("different-puuid");
+
+        Assert.False(matches);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("   ")]
+    public void DoesNotMatchMissingPuuid(string playerPuuid)
+    {
+        var player = new Player(
+            "test-puuid",
+            "TestPlayer",
+            "EUW");
+
+        var matches = player.MatchesPuuid(playerPuuid);
+
+        Assert.False(matches);
+    }
 }

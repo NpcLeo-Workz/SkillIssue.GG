@@ -31,6 +31,8 @@ public class Match
     public TimeSpan Duration { get; private set; }
 
     public string? EndOfGameResult { get; private set; }
+    private readonly List<MatchParticipant> _participants = [];
+    public IReadOnlyCollection<MatchParticipant> Participants => _participants;
 
     private Match()
     {
@@ -150,5 +152,42 @@ public class Match
         EndedAt = endedAt;
         Duration = duration;
         EndOfGameResult = endOfGameResult;
+    }
+    public bool WasPlayedOnPatch(Patch patch)
+    {
+        ArgumentNullException.ThrowIfNull(patch);
+
+        var parts = GameVersion.Split('.');
+
+        if (parts.Length < 2)
+        {
+            return false;
+        }
+
+        var matchPatchVersion = $"{parts[0]}.{parts[1]}";
+
+        return string.Equals(
+            matchPatchVersion,
+            patch.Version,
+            StringComparison.Ordinal);
+    }
+    public void AddParticipant(MatchParticipant participant)
+    {
+        ArgumentNullException.ThrowIfNull(participant);
+
+        if (participant.MatchId != Id)
+        {
+            throw new ArgumentException(
+                "Participant belongs to a different match.",
+                nameof(participant));
+        }
+
+        if (_participants.Any(x => x.ParticipantId == participant.ParticipantId))
+        {
+            throw new InvalidOperationException(
+                "Participant has already been added to this match.");
+        }
+
+        _participants.Add(participant);
     }
 }

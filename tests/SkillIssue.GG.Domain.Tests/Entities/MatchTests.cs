@@ -76,6 +76,90 @@ public class MatchTests
                 startedAt: startedAt,
                 endedAt: startedAt.AddMinutes(-1)));
     }
+    [Fact]
+    public void MatchesPatchWhenGameVersionBelongsToPatch()
+    {
+        var match = CreateMatch();
+
+        var patch = new Patch(
+            version: "15.17",
+            dataDragonVersion: "15.17.1");
+
+        var matches = match.WasPlayedOnPatch(patch);
+
+        Assert.True(matches);
+    }
+
+    [Fact]
+    public void DoesNotMatchDifferentPatch()
+    {
+        var match = CreateMatch();
+
+        var patch = new Patch(
+            version: "15.16",
+            dataDragonVersion: "15.16.1");
+
+        var matches = match.WasPlayedOnPatch(patch);
+
+        Assert.False(matches);
+    }
+
+    [Fact]
+    public void ThrowsWhenPatchIsNull()
+    {
+        var match = CreateMatch();
+
+        Assert.Throws<ArgumentNullException>(() =>
+            match.WasPlayedOnPatch(null!));
+    }
+
+
+    [Fact]
+    public void AddsParticipantToMatch()
+    {
+        var match = CreateMatch();
+        var participant = CreateParticipant(match.Id);
+
+        match.AddParticipant(participant);
+
+        Assert.Single(match.Participants);
+        Assert.Contains(participant, match.Participants);
+    }
+
+    [Fact]
+    public void ThrowsWhenParticipantBelongsToDifferentMatch()
+    {
+        var match = CreateMatch();
+        var differentMatch = CreateMatch(
+            riotMatchId: "EUW1_9876543210",
+            riotGameId: 9876543210);
+
+        var participant = CreateParticipant(differentMatch.Id);
+
+        Assert.Throws<ArgumentException>(() =>
+            match.AddParticipant(participant));
+    }
+
+    [Fact]
+    public void ThrowsWhenParticipantIsAddedTwice()
+    {
+        var match = CreateMatch();
+        var participant = CreateParticipant(match.Id);
+
+        match.AddParticipant(participant);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            match.AddParticipant(participant));
+    }
+
+    [Fact]
+    public void ThrowsWhenParticipantIsNull()
+    {
+        var match = CreateMatch();
+
+        Assert.Throws<ArgumentNullException>(() =>
+            match.AddParticipant(null!));
+    }
 
     private static Match CreateMatch(
         string riotMatchId = "EUW1_1234567890",
@@ -102,5 +186,33 @@ public class MatchTests
             matchEndedAt,
             duration ?? TimeSpan.FromMinutes(30),
             "GameComplete");
+    }
+
+    private static MatchParticipant CreateParticipant(
+    Guid matchId,
+    int participantId = 1)
+    {
+        return new MatchParticipant(
+            matchId: matchId,
+            playerPuuid: "test-puuid",
+            participantId: participantId,
+            teamId: 100,
+            championId: 266,
+            championName: "Aatrox",
+            teamPosition: "TOP",
+            kills: 5,
+            deaths: 2,
+            assists: 7,
+            goldEarned: 12000,
+            goldSpent: 11000,
+            totalMinionsKilled: 180,
+            neutralMinionsKilled: 10,
+            visionScore: 25,
+            wardsPlaced: 8,
+            wardsKilled: 3,
+            totalDamageDealtToChampions: 22000,
+            totalDamageTaken: 18000,
+            timePlayed: TimeSpan.FromMinutes(30),
+            won: true);
     }
 }

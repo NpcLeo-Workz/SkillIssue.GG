@@ -153,6 +153,134 @@ public class MatchParticipantTests
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             CreateParticipant(timePlayed: TimeSpan.Zero));
     }
+    [Fact]
+    public void MatchesChampionWhenRiotChampionIdMatches()
+    {
+        var participant = CreateParticipant(championId: 266);
+
+        var champion = new Champion(
+            riotChampionId: 266,
+            name: "Aatrox");
+
+        var matches = participant.PlayedChampion(champion);
+
+        Assert.True(matches);
+    }
+
+    [Fact]
+    public void DoesNotMatchChampionWhenRiotChampionIdDiffers()
+    {
+        var participant = CreateParticipant(championId: 266);
+
+        var champion = new Champion(
+            riotChampionId: 103,
+            name: "Ahri");
+
+        var matches = participant.PlayedChampion(champion);
+
+        Assert.False(matches);
+    }
+
+    [Fact]
+    public void ThrowsWhenChampionIsNull()
+    {
+        var participant = CreateParticipant();
+
+        Assert.Throws<ArgumentNullException>(() =>
+            participant.PlayedChampion(null!));
+    }
+
+    [Fact]
+    public void AddsItemId()
+    {
+        var participant = CreateParticipant();
+
+        participant.AddItem(3078);
+
+        Assert.Single(participant.ItemIds);
+        Assert.Contains(3078, participant.ItemIds);
+    }
+
+    [Fact]
+    public void AllowsMultipleItemIds()
+    {
+        var participant = CreateParticipant();
+
+        participant.AddItem(3078);
+        participant.AddItem(3047);
+        participant.AddItem(3053);
+
+        Assert.Equal(3, participant.ItemIds.Count);
+        Assert.Contains(3078, participant.ItemIds);
+        Assert.Contains(3047, participant.ItemIds);
+        Assert.Contains(3053, participant.ItemIds);
+    }
+
+    [Fact]
+    public void IgnoresEmptyItemSlot()
+    {
+        var participant = CreateParticipant();
+
+        participant.AddItem(0);
+
+        Assert.Empty(participant.ItemIds);
+    }
+
+    [Fact]
+    public void ThrowsWhenItemIdIsNegative()
+    {
+        var participant = CreateParticipant();
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            participant.AddItem(-1));
+    }
+    [Fact]
+    public void AddsRuneId()
+    {
+        var participant = CreateParticipant();
+
+        participant.AddRune(8005);
+
+        Assert.Single(participant.RuneIds);
+        Assert.Contains(8005, participant.RuneIds);
+    }
+
+    [Fact]
+    public void AllowsMultipleRuneIds()
+    {
+        var participant = CreateParticipant();
+
+        participant.AddRune(8005);
+        participant.AddRune(9111);
+        participant.AddRune(9104);
+
+        Assert.Equal(3, participant.RuneIds.Count);
+        Assert.Contains(8005, participant.RuneIds);
+        Assert.Contains(9111, participant.RuneIds);
+        Assert.Contains(9104, participant.RuneIds);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void ThrowsWhenRuneIdIsInvalid(int riotRuneId)
+    {
+        var participant = CreateParticipant();
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            participant.AddRune(riotRuneId));
+    }
+
+    [Fact]
+    public void ThrowsWhenRuneIsAddedTwice()
+    {
+        var participant = CreateParticipant();
+
+        participant.AddRune(8005);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            participant.AddRune(8005));
+    }
 
     private static MatchParticipant CreateParticipant(
         Guid? matchId = null,
