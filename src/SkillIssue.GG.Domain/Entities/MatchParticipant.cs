@@ -46,12 +46,6 @@ public class MatchParticipant
 
     public bool Won { get; private set; }
 
-    public bool PlayedChampion(Champion champion)
-    {
-        ArgumentNullException.ThrowIfNull(champion);
-
-        return ChampionId == champion.RiotChampionId;
-    }
     private readonly List<int> _itemIds = [];
 
     public IReadOnlyCollection<int> ItemIds => _itemIds;
@@ -194,6 +188,12 @@ public class MatchParticipant
         TotalDamageTaken = totalDamageTaken;
         TimePlayed = timePlayed;
         Won = won;
+    }
+    public bool PlayedChampion(Champion champion)
+    {
+        ArgumentNullException.ThrowIfNull(champion);
+
+        return ChampionId == champion.RiotChampionId;
     }
 
     public void AddItem(int riotItemId)
