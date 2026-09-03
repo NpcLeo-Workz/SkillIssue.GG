@@ -8,9 +8,9 @@ public class Rune
 
     public string Name { get; private set; }
 
-    public string Description { get; private set; }
+    public string? Description { get; private set; }
 
-    public string IconPath { get; private set; }
+    public string? IconPath { get; private set; }
 
     public int RuneTreeId { get; private set; }
 
@@ -19,16 +19,14 @@ public class Rune
     private Rune()
     {
         Name = string.Empty;
-        Description = string.Empty;
-        IconPath = string.Empty;
         RuneTreeName = string.Empty;
     }
 
     public Rune(
         int riotRuneId,
         string name,
-        string description,
-        string iconPath,
+        string? description,
+        string? iconPath,
         int runeTreeId,
         string runeTreeName)
     {

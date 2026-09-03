@@ -3,25 +3,25 @@ namespace SkillIssue.GG.Domain.Entities;
 public class Player
 {
     public Guid Id { get; private set; }
-    public string GamePlayerId { get; private set; }
+    public string Puuid { get; private set; }
     public string Name { get; private set; }
     public string Region { get; private set; }
     private Player()
     {
-        GamePlayerId = string.Empty;
+        Puuid = string.Empty;
         Name = string.Empty;
         Region = string.Empty;
     }
     public Player(
-        string gamePlayerId,
+        string puuid,
         string name,
         string region)
     {
-        if (string.IsNullOrWhiteSpace(gamePlayerId))
+        if (string.IsNullOrWhiteSpace(puuid))
         {
             throw new ArgumentException(
-                "Game player ID is required.",
-                nameof(gamePlayerId));
+                "PUUID is required.",
+                nameof(puuid));
         }
 
         if (string.IsNullOrWhiteSpace(name))
@@ -39,7 +39,7 @@ public class Player
         }
 
         Id = Guid.NewGuid();
-        GamePlayerId = gamePlayerId;
+        Puuid = puuid;
         Name = name;
         Region = region;
     }
@@ -52,7 +52,7 @@ public class Player
         }
 
         return string.Equals(
-            GamePlayerId,
+            Puuid,
             playerPuuid,
             StringComparison.Ordinal);
     }

@@ -8,20 +8,20 @@ public class PlayerTests
     public void CreatesPlayerWithValidInformation()
     {
         // Arrange
-        var gamePlayerId = "12345";
+        var puuid = "12345";
         var name = "John Doe";
         var region = "EUW";
         // Act
-        var player = new Player(gamePlayerId, name, region);
+        var player = new Player(puuid, name, region);
         // Assert
         Assert.NotEqual(Guid.Empty, player.Id);
-        Assert.Equal(gamePlayerId, player.GamePlayerId);
+        Assert.Equal(puuid, player.Puuid);
         Assert.Equal(name, player.Name);
         Assert.Equal(region, player.Region);
     }
 
     [Fact]
-    public void ThrowsWhenGamePlayerIdIsNullOrWhitespace()
+    public void ThrowsWhenPuuidIsNullOrWhitespace()
     {
         // Arrange
         var name = "John Doe";
@@ -35,26 +35,26 @@ public class PlayerTests
     public void ThrowsWhenNameIsNullOrWhitespace()
     {
         // Arrange
-        var gamePlayerId = "12345";
+        var puuid = "12345";
         var region = "EUW";
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => new Player(gamePlayerId, "", region));
-        Assert.Throws<ArgumentException>(() => new Player(gamePlayerId, "   ", region));
+        Assert.Throws<ArgumentException>(() => new Player(puuid, "", region));
+        Assert.Throws<ArgumentException>(() => new Player(puuid, "   ", region));
     }
 
     [Fact]
     public void ThrowsWhenRegionIsNullOrWhitespace()
     {
         // Arrange
-        var gamePlayerId = "12345";
+        var puuid = "12345";
         var name = "John Doe";
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => new Player(gamePlayerId, name, ""));
-        Assert.Throws<ArgumentException>(() => new Player(gamePlayerId, name, "   "));
+        Assert.Throws<ArgumentException>(() => new Player(puuid, name, ""));
+        Assert.Throws<ArgumentException>(() => new Player(puuid, name, "   "));
     }
 
     [Fact]
-    public void MatchesPuuidWhenPuuidMatchesGamePlayerId()
+    public void MatchesPuuidWhenPuuidMatches()
     {
         var player = new Player(
             "test-puuid",

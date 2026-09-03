@@ -161,6 +161,57 @@ public class MatchTests
             match.AddParticipant(null!));
     }
 
+    [Fact]
+    public void ThrowsWhenGameCreatedAtIsAfterStartedAt()
+    {
+        var startedAt = DateTimeOffset.UtcNow;
+        var gameCreatedAt = startedAt.AddMinutes(1);
+        var endedAt = startedAt.AddMinutes(30);
+
+        Assert.Throws<ArgumentException>(() =>
+            new Match(
+                "EUW1_1234567890",
+                1234567890,
+                "2",
+                "15.17.123.4567",
+                "CLASSIC",
+                "MATCHED_GAME",
+                11,
+                410,
+                "EUW1",
+                gameCreatedAt,
+                startedAt,
+                endedAt,
+                TimeSpan.FromMinutes(30),
+                "GameComplete"));
+    }
+
+    [Fact]
+    public void AllowsGameCreatedAtBeforeStartedAt()
+    {
+        var startedAt = DateTimeOffset.UtcNow;
+        var gameCreatedAt = startedAt.AddMinutes(-1);
+        var endedAt = startedAt.AddMinutes(30);
+
+        var match = new Match(
+            "EUW1_1234567890",
+            1234567890,
+            "2",
+            "15.17.123.4567",
+            "CLASSIC",
+            "MATCHED_GAME",
+            11,
+            410,
+            "EUW1",
+            gameCreatedAt,
+            startedAt,
+            endedAt,
+            TimeSpan.FromMinutes(30),
+            "GameComplete");
+
+        Assert.Equal(gameCreatedAt, match.GameCreatedAt);
+    }
+
     private static Match CreateMatch(
         string riotMatchId = "EUW1_1234567890",
         long riotGameId = 1234567890,
@@ -198,7 +249,6 @@ public class MatchTests
             participantId: participantId,
             teamId: 100,
             championId: 266,
-            championName: "Aatrox",
             teamPosition: "TOP",
             kills: 5,
             deaths: 2,

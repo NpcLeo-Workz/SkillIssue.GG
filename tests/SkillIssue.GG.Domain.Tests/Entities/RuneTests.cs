@@ -96,7 +96,7 @@ public class RuneTests
         var rune = new Rune(
             8005,
             "Press the Attack",
-            null!,
+            null,
             "icon.png",
             8000,
             "Precision");
@@ -111,7 +111,7 @@ public class RuneTests
             8005,
             "Press the Attack",
             "Description",
-            null!,
+            null,
             8000,
             "Precision");
 
