@@ -20,4 +20,9 @@
     <ProjectReference Include="..\SkillIssue.GG.Domain\SkillIssue.GG.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Configurations\" />
+    <Folder Include="Migrations\" />
+  </ItemGroup>
+
 </Project>
