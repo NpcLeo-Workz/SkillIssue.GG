@@ -64,5 +64,10 @@ public class MatchConfiguration : IEntityTypeConfiguration<Match>
         builder.HasIndex(x => x.RiotGameId);
 
         builder.HasIndex(x => x.StartedAt);
+
+        builder.HasMany(x => x.Participants)
+            .WithOne()
+            .HasForeignKey(x => x.MatchId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }
