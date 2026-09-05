@@ -5,4 +5,5 @@
   <Project Path="src/SkillIssue.GG.Infrastructure/SkillIssue.GG.Infrastructure.csproj" />
   <Project Path="src/SkillIssue.GG.Web/SkillIssue.GG.Web.csproj" />
   <Project Path="tests/SkillIssue.GG.Domain.Tests/SkillIssue.GG.Domain.Tests.csproj" />
+  <Project Path="tests/SkillIssue.GG.Infrastructure.IntegrationTests/SkillIssue.GG.Infrastructure.IntegrationTests.csproj" />
 </Solution>
