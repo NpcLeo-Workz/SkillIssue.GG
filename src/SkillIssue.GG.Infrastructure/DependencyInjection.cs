@@ -3,6 +3,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using SkillIssue.GG.Infrastructure.Persistence;
 using SkillIssue.GG.Infrastructure.Riot.Configuration;
+using Microsoft.Extensions.Options;
+using SkillIssue.GG.Infrastructure.Riot.Http;
 
 namespace SkillIssue.GG.Infrastructure;
 
@@ -33,6 +35,16 @@ public static class DependencyInjection
                 "Riot regional route is not configured.")
             .ValidateOnStart();
 
+        services.AddHttpClient<RiotApiClient>((serviceProvider, httpClient) =>
+        {
+            var riotApiOptions = serviceProvider
+                .GetRequiredService<IOptions<RiotApiOptions>>()
+                .Value;
+
+            httpClient.DefaultRequestHeaders.Add(
+                "X-Riot-Token",
+                riotApiOptions.ApiKey);
+        });
 
         return services;
     }
