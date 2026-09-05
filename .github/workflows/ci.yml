@@ -1,0 +1,43 @@
+name: SkillIssue.GG CI
+
+on:
+  push:
+    branches:
+      - main
+      - development
+      - 'feature/**'
+      - 'fix/**'
+      - 'bugfix/**'
+      - 'hotfix/**'
+      - 'refactor/**'
+      - 'test/**'
+      - 'docs/**'
+      - 'chore/**'
+      - 'ci/**'
+
+  pull_request:
+    branches:
+      - main
+      - development
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore SkillIssue.GG.slnx
+
+      - name: Build solution
+        run: dotnet build SkillIssue.GG.slnx --no-restore --configuration Release
+
+      - name: Run tests
+        run: dotnet test SkillIssue.GG.slnx --no-build --configuration Release
