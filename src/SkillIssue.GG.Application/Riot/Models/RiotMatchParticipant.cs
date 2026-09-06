@@ -1,0 +1,26 @@
+namespace SkillIssue.GG.Application.Riot.Models;
+
+public sealed record RiotMatchParticipant(
+    string Puuid,
+    int ParticipantId,
+    int TeamId,
+    int ChampionId,
+    string ChampionName,
+    string TeamPosition,
+    int Kills,
+    int Deaths,
+    int Assists,
+    int GoldEarned,
+    int GoldSpent,
+    int TotalMinionsKilled,
+    int NeutralMinionsKilled,
+    int VisionScore,
+    int WardsPlaced,
+    int WardsKilled,
+    int TotalDamageDealt,
+    int TotalDamageDealtToChampions,
+    int TotalDamageTaken,
+    TimeSpan TimePlayed,
+    bool Won,
+    IReadOnlyList<int> ItemIds,
+    IReadOnlyList<int> RuneIds);
