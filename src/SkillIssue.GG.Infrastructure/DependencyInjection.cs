@@ -1,12 +1,14 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using SkillIssue.GG.Infrastructure.Persistence;
-using SkillIssue.GG.Infrastructure.Riot.Configuration;
 using Microsoft.Extensions.Options;
-using SkillIssue.GG.Infrastructure.Riot.Http;
+using SkillIssue.GG.Application.Matches.Interfaces;
 using SkillIssue.GG.Application.Riot.Interfaces;
+using SkillIssue.GG.Infrastructure.Persistence;
+using SkillIssue.GG.Infrastructure.Persistence.Repositories;
 using SkillIssue.GG.Infrastructure.Riot.Account;
+using SkillIssue.GG.Infrastructure.Riot.Configuration;
+using SkillIssue.GG.Infrastructure.Riot.Http;
 using SkillIssue.GG.Infrastructure.Riot.Match;
 
 namespace SkillIssue.GG.Infrastructure;
@@ -52,6 +54,10 @@ public static class DependencyInjection
         services.AddScoped<IRiotAccountService, RiotAccountService>();
         services.AddScoped<IRiotMatchHistoryService, RiotMatchHistoryService>();
         services.AddScoped<IRiotMatchService, RiotMatchService>();
+
+
+
+        services.AddScoped<IMatchRepository, MatchRepository>();
 
         return services;
     }
