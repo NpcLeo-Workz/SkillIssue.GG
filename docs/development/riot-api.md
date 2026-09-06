@@ -542,3 +542,376 @@ Then verify the full solution:
 dotnet build SkillIssue.GG.slnx
 dotnet test SkillIssue.GG.slnx
 ```
+
+## Match-V5 Details Integration
+
+SkillIssue.GG uses Riot Match-V5 to retrieve full match details for a specific Riot match ID.
+
+This integration is responsible for HTTP retrieval, Riot response deserialization, response validation, and mapping into Application-facing models.
+
+Mapping into Domain entities and persistence are handled separately.
+
+### Application Contract
+
+The Application layer defines:
+
+```text
+src/SkillIssue.GG.Application/Riot/Interfaces/IRiotMatchService.cs
+```
+
+The service accepts:
+
+```text
+matchId
+CancellationToken
+```
+
+and returns:
+
+```text
+RiotMatchDetails
+```
+
+The Application layer does not depend on Riot HTTP types or Infrastructure DTOs.
+
+### Application Models
+
+Application-facing models are located under:
+
+```text
+src/SkillIssue.GG.Application/Riot/Models/
+```
+
+Current models include:
+
+```text
+RiotMatchDetails
+RiotMatchParticipant
+```
+
+These models expose the match and participant data required by later import and mapping steps.
+
+### Infrastructure Implementation
+
+The Match-V5 details implementation is located at:
+
+```text
+src/SkillIssue.GG.Infrastructure/Riot/Match/RiotMatchService.cs
+```
+
+Riot-specific DTOs are located under:
+
+```text
+src/SkillIssue.GG.Infrastructure/Riot/Match/Dto/
+```
+
+The DTOs mirror the Riot Match-V5 JSON structure needed by SkillIssue.GG.
+
+### Match Details Endpoint
+
+The Match-V5 details endpoint is:
+
+```text
+GET /lol/match/v5/matches/{matchId}
+```
+
+Example:
+
+```text
+GET /lol/match/v5/matches/EUW1_1234567890
+```
+
+### Regional Routing
+
+Match-V5 uses a regional routing host.
+
+The route comes from:
+
+```text
+RiotApi:RegionalRoute
+```
+
+For example:
+
+```text
+europe
+```
+
+produces requests against:
+
+```text
+https://europe.api.riotgames.com
+```
+
+`PlatformRoute` is not used for Match-V5.
+
+### Match ID Encoding
+
+The Riot match ID is URL-encoded before being inserted into the request path.
+
+This keeps request construction safe and prevents special characters from altering the endpoint path.
+
+### Match Fields
+
+The Match-V5 response is mapped into Application data including:
+
+```text
+metadata.dataVersion
+metadata.matchId
+
+info.gameId
+info.gameVersion
+info.gameMode
+info.gameType
+info.mapId
+info.queueId
+info.platformId
+info.gameCreation
+info.gameStartTimestamp
+info.gameEndTimestamp
+info.gameDuration
+info.endOfGameResult
+```
+
+Riot timestamps expressed as Unix milliseconds are converted into:
+
+```text
+DateTimeOffset
+```
+
+Game duration is converted into:
+
+```text
+TimeSpan
+```
+
+### Participant Fields
+
+Participant data currently includes:
+
+```text
+puuid
+participantId
+teamId
+championId
+championName
+teamPosition
+
+kills
+deaths
+assists
+
+goldEarned
+goldSpent
+
+totalMinionsKilled
+neutralMinionsKilled
+
+visionScore
+wardsPlaced
+wardsKilled
+
+totalDamageDealt
+totalDamageDealtToChampions
+totalDamageTaken
+
+timePlayed
+win
+```
+
+Participant `timePlayed` is converted from seconds into:
+
+```text
+TimeSpan
+```
+
+`championName` is retained in the Application-facing Riot model even though the normalized Domain model uses `ChampionId` rather than storing the champion name on `MatchParticipant`.
+
+### Items
+
+Match-V5 exposes item slots as:
+
+```text
+item0
+item1
+item2
+item3
+item4
+item5
+item6
+```
+
+The Infrastructure mapping flattens these values into:
+
+```text
+IReadOnlyList<int> ItemIds
+```
+
+Item ID `0` represents an empty slot and is excluded.
+
+Item order is preserved.
+
+### Runes
+
+Selected runes are obtained from the nested Match-V5 perk structure:
+
+```text
+perks
+  └── styles
+      └── selections
+          └── perk
+```
+
+The selected `perk` values are flattened into:
+
+```text
+IReadOnlyList<int> RuneIds
+```
+
+Non-positive rune IDs are ignored.
+
+Duplicate rune IDs are removed during the Infrastructure mapping step.
+
+### Nullable Fields
+
+The current integration allows nullable Riot match completion fields:
+
+```text
+gameEndTimestamp
+endOfGameResult
+```
+
+These map to:
+
+```text
+DateTimeOffset? EndedAt
+string? EndOfGameResult
+```
+
+This supports payloads where completion-related information is unavailable.
+
+### Response Validation
+
+Successful HTTP responses are validated before being returned to the Application layer.
+
+The current implementation requires:
+
+```text
+metadata
+metadata.matchId
+metadata.dataVersion
+info
+info.participants
+```
+
+At least one participant must be present.
+
+Participants must currently contain valid:
+
+```text
+puuid
+participantId
+championId
+```
+
+Invalid successful responses fail explicitly instead of creating incomplete Application models.
+
+### Error Handling
+
+Unsuccessful Riot HTTP responses continue to use the shared:
+
+```text
+RiotApiException
+```
+
+Examples include:
+
+```text
+400 Bad Request
+403 Forbidden
+404 Not Found
+429 Too Many Requests
+5xx responses
+```
+
+Malformed JSON surfaces as a JSON deserialization error.
+
+Advanced rate-limit and retry behavior remains outside the scope of the current integration.
+
+### Cancellation
+
+Match details retrieval supports `CancellationToken`.
+
+Cancellation is propagated through:
+
+```text
+IRiotMatchService
+    ↓
+RiotMatchService
+    ↓
+RiotApiClient
+    ↓
+HttpClient
+```
+
+### Dependency Injection
+
+The Infrastructure implementation is registered as:
+
+```text
+IRiotMatchService
+    → RiotMatchService
+```
+
+Consumers depend on the Application abstraction rather than the concrete Infrastructure implementation.
+
+### Testing
+
+Match-V5 details behavior is tested without contacting Riot.
+
+Current tests cover:
+
+- Successful match retrieval
+- Correct Match-V5 endpoint
+- Regional routing
+- Match ID encoding
+- Match metadata mapping
+- Match info mapping
+- Timestamp conversion
+- Duration conversion
+- Participant mapping
+- Item ID mapping
+- Rune ID mapping
+- Nullable completion fields
+- Missing metadata
+- Missing match ID
+- Missing data version
+- Missing match info
+- Missing participants
+- Empty participants
+- Invalid participant PUUID
+- Invalid participant ID
+- Invalid champion ID
+- Malformed JSON
+- Null responses
+- Riot API errors
+- Cancellation propagation
+
+The tests use stubbed HTTP behavior.
+
+They do not contact the real Riot API and do not require a real Riot API key.
+
+### Verification
+
+Run the Match-V5 details tests:
+
+```powershell
+dotnet test tests/SkillIssue.GG.Infrastructure.IntegrationTests/SkillIssue.GG.Infrastructure.IntegrationTests.csproj --filter "FullyQualifiedName~RiotMatchServiceTests"
+```
+
+Then verify the full solution:
+
+```powershell
+dotnet build SkillIssue.GG.slnx
+dotnet test SkillIssue.GG.slnx
+```
