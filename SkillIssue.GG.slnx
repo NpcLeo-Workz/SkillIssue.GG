@@ -1,4 +1,8 @@
 <Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/tests/">
+    <Project Path="tests/SkillIssue.GG.Application.Tests/SkillIssue.GG.Application.Tests.csproj" />
+  </Folder>
   <Project Path="src/SkillIssue.GG.Analysis/SkillIssue.GG.Analysis.csproj" />
   <Project Path="src/SkillIssue.GG.Application/SkillIssue.GG.Application.csproj" />
   <Project Path="src/SkillIssue.GG.Domain/SkillIssue.GG.Domain.csproj" />
