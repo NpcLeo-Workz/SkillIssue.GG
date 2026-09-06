@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 using SkillIssue.GG.Infrastructure.Riot.Http;
 using SkillIssue.GG.Application.Riot.Interfaces;
 using SkillIssue.GG.Infrastructure.Riot.Account;
+using SkillIssue.GG.Infrastructure.Riot.Match;
 
 namespace SkillIssue.GG.Infrastructure;
 
@@ -49,6 +50,7 @@ public static class DependencyInjection
         });
 
         services.AddScoped<IRiotAccountService, RiotAccountService>();
+        services.AddScoped<IRiotMatchHistoryService, RiotMatchHistoryService>();
 
         return services;
     }

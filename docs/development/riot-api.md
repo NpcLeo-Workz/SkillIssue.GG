@@ -319,3 +319,226 @@ Then verify the full solution:
 dotnet build SkillIssue.GG.slnx
 dotnet test SkillIssue.GG.slnx
 ```
+
+## Match-V5 History Integration
+
+SkillIssue.GG uses Riot Match-V5 to retrieve match IDs for a player using their PUUID.
+
+This integration retrieves match history identifiers only. Fetching individual match details is implemented separately.
+
+### Application Contract
+
+The Application layer defines:
+
+```text
+src/SkillIssue.GG.Application/Riot/Interfaces/IRiotMatchHistoryService.cs
+```
+
+The contract accepts:
+
+```text
+puuid
+start
+count
+CancellationToken
+```
+
+and returns a read-only collection of Riot match IDs.
+
+The Application layer does not depend on Riot HTTP types or Infrastructure DTOs.
+
+### Infrastructure Implementation
+
+The Match-V5 history implementation is located at:
+
+```text
+src/SkillIssue.GG.Infrastructure/Riot/Match/RiotMatchHistoryService.cs
+```
+
+The service reuses the shared:
+
+```text
+RiotApiClient
+```
+
+for authentication and HTTP behavior.
+
+### Match History Lookup
+
+The Match-V5 history endpoint is:
+
+```text
+GET /lol/match/v5/matches/by-puuid/{puuid}/ids
+```
+
+Pagination is supplied using:
+
+```text
+start
+count
+```
+
+Example:
+
+```text
+GET /lol/match/v5/matches/by-puuid/{puuid}/ids?start=0&count=20
+```
+
+### Regional Routing
+
+Match-V5 uses a regional routing host.
+
+The regional route comes from:
+
+```text
+RiotApi:RegionalRoute
+```
+
+For example:
+
+```text
+europe
+```
+
+produces requests against:
+
+```text
+https://europe.api.riotgames.com
+```
+
+The implementation does not use `PlatformRoute` for Match-V5.
+
+### PUUID Encoding
+
+The PUUID is URL-encoded before being included in the request path.
+
+This prevents unsafe path construction and ensures special characters are handled correctly.
+
+### Pagination
+
+The service supports:
+
+```text
+start
+count
+```
+
+The default values are:
+
+```text
+start = 0
+count = 20
+```
+
+Validation is performed before sending a request.
+
+Current rules:
+
+- `start` must not be negative
+- `count` must be greater than zero
+- `count` must not exceed 100
+
+Invalid pagination values fail before contacting Riot.
+
+### Response Format
+
+Match-V5 returns a JSON array of Riot match IDs.
+
+Example:
+
+```json
+[
+  "EUW1_1234567890",
+  "EUW1_1234567891"
+]
+```
+
+These values are returned to the Application layer as:
+
+```text
+IReadOnlyList<string>
+```
+
+An empty response:
+
+```json
+[]
+```
+
+is valid and returns an empty collection.
+
+A successful response containing null or invalid match IDs is treated as invalid.
+
+Malformed JSON also fails explicitly.
+
+### Error Handling
+
+Failed Riot API responses continue to use the shared `RiotApiException` behavior.
+
+Examples include:
+
+```text
+400 Bad Request
+403 Forbidden
+404 Not Found
+429 Too Many Requests
+5xx responses
+```
+
+Detailed rate-limit and retry behavior remains outside the scope of the current implementation.
+
+### Cancellation
+
+Match history lookup supports `CancellationToken`.
+
+Cancellation is propagated through:
+
+```text
+IRiotMatchHistoryService
+    ↓
+RiotMatchHistoryService
+    ↓
+RiotApiClient
+    ↓
+HttpClient
+```
+
+### Testing
+
+Match-V5 history behavior is tested without contacting the real Riot API.
+
+Current tests cover:
+
+- Successful match history retrieval
+- Multiple match IDs
+- Empty match history
+- Correct Match-V5 endpoint
+- Regional routing
+- PUUID encoding
+- Default pagination
+- Custom pagination
+- Invalid PUUID
+- Negative `start`
+- Invalid `count`
+- Failed Riot API responses
+- Malformed JSON
+- Null responses
+- Invalid match IDs
+- Cancellation propagation
+
+The tests do not require a real Riot API key.
+
+### Verification
+
+Run the Match-V5 history tests:
+
+```powershell
+dotnet test tests/SkillIssue.GG.Infrastructure.IntegrationTests/SkillIssue.GG.Infrastructure.IntegrationTests.csproj --filter "FullyQualifiedName~RiotMatchHistoryServiceTests"
+```
+
+Then verify the full solution:
+
+```powershell
+dotnet build SkillIssue.GG.slnx
+dotnet test SkillIssue.GG.slnx
+```
