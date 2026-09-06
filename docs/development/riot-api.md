@@ -138,3 +138,184 @@ Then verify the full solution:
 dotnet build SkillIssue.GG.slnx
 dotnet test SkillIssue.GG.slnx
 ```
+
+## Account-V1 Integration
+
+SkillIssue.GG uses Riot Account-V1 to resolve a Riot ID into a Riot account and obtain the player's PUUID.
+
+The Account-V1 integration is implemented through an Application abstraction and an Infrastructure implementation.
+
+### Application Contract
+
+The Application layer defines:
+
+```text
+src/SkillIssue.GG.Application/Riot/Interfaces/IRiotAccountService.cs
+```
+
+The result model is:
+
+```text
+src/SkillIssue.GG.Application/Riot/Models/RiotAccount.cs
+```
+
+The Application layer does not depend on Riot HTTP DTOs or transport-specific types.
+
+### Infrastructure Implementation
+
+The Riot Account-V1 implementation is located at:
+
+```text
+src/SkillIssue.GG.Infrastructure/Riot/Account/RiotAccountService.cs
+```
+
+The external response DTO is located at:
+
+```text
+src/SkillIssue.GG.Infrastructure/Riot/Account/Dto/RiotAccountDto.cs
+```
+
+The Infrastructure DTO mirrors the Riot API response and is mapped into the Application `RiotAccount` model before crossing the boundary.
+
+### Riot ID Lookup
+
+A Riot ID consists of:
+
+```text
+gameName
+tagLine
+```
+
+Example:
+
+```text
+Some Player#EUW
+```
+
+is represented as:
+
+```text
+gameName = Some Player
+tagLine = EUW
+```
+
+The lookup uses:
+
+```text
+GET /riot/account/v1/accounts/by-riot-id/{gameName}/{tagLine}
+```
+
+### Regional Routing
+
+Account-V1 uses a regional routing host.
+
+The regional route comes from:
+
+```text
+RiotApi:RegionalRoute
+```
+
+For example:
+
+```text
+europe
+```
+
+produces a host such as:
+
+```text
+https://europe.api.riotgames.com
+```
+
+The Account-V1 implementation must not hardcode a specific regional route.
+
+### URL Encoding
+
+Both `gameName` and `tagLine` are URL-encoded before being included in the request path.
+
+This allows Riot IDs containing spaces or other characters to be handled safely.
+
+### Response Data
+
+SkillIssue.GG currently uses the following Account-V1 response fields:
+
+```text
+puuid
+gameName
+tagLine
+```
+
+These values are deserialized into `RiotAccountDto` and then mapped to the Application `RiotAccount` model.
+
+### Error Handling
+
+The Account-V1 service reuses the shared `RiotApiClient`.
+
+Failed Riot API responses continue to use the shared `RiotApiException` behavior.
+
+Examples include:
+
+```text
+404 Not Found
+403 Forbidden
+429 Too Many Requests
+5xx responses
+```
+
+Detailed retry and rate-limit behavior is handled separately.
+
+A successful HTTP response that does not contain valid account data is treated as an invalid response rather than returning an incomplete account.
+
+Malformed JSON also fails explicitly.
+
+### Cancellation
+
+Account lookup supports `CancellationToken`.
+
+The token is propagated through:
+
+```text
+IRiotAccountService
+    ↓
+RiotAccountService
+    ↓
+RiotApiClient
+    ↓
+HttpClient
+```
+
+### Testing
+
+Account-V1 behavior is tested without contacting the real Riot API.
+
+Current tests cover:
+
+- Successful account lookup
+- PUUID deserialization
+- Game name deserialization
+- Tag line deserialization
+- Correct Account-V1 request path
+- Regional route usage
+- URL encoding
+- Failed Riot API responses
+- Invalid successful responses
+- Malformed JSON
+- Invalid input
+- Cancellation propagation
+
+The tests do not require a real Riot API key.
+
+### Verification
+
+Run the Account-V1 tests:
+
+```powershell
+dotnet test tests/SkillIssue.GG.Infrastructure.IntegrationTests/SkillIssue.GG.Infrastructure.IntegrationTests.csproj --filter "FullyQualifiedName~RiotAccountServiceTests"
+```
+
+Then verify the full solution:
+
+```powershell
+dotnet build SkillIssue.GG.slnx
+dotnet test SkillIssue.GG.slnx
+```
