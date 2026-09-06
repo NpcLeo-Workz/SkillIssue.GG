@@ -5,6 +5,8 @@ using SkillIssue.GG.Infrastructure.Persistence;
 using SkillIssue.GG.Infrastructure.Riot.Configuration;
 using Microsoft.Extensions.Options;
 using SkillIssue.GG.Infrastructure.Riot.Http;
+using SkillIssue.GG.Application.Riot.Interfaces;
+using SkillIssue.GG.Infrastructure.Riot.Account;
 
 namespace SkillIssue.GG.Infrastructure;
 
@@ -45,6 +47,8 @@ public static class DependencyInjection
                 "X-Riot-Token",
                 riotApiOptions.ApiKey);
         });
+
+        services.AddScoped<IRiotAccountService, RiotAccountService>();
 
         return services;
     }
