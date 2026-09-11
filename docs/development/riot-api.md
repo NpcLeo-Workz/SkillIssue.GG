@@ -1368,3 +1368,230 @@ Calculate statistics
 ```
 
 Those responsibilities remain separate application workflows.
+
+## Riot Match History Synchronization
+
+A player's Riot match history can now be synchronized one requested page at a time.
+
+The synchronization flow is:
+
+```text
+PUUID
+    ↓
+IRiotMatchHistoryService.GetMatchIdsAsync(...)
+    ↓
+Returned Riot match IDs
+    ↓
+IRiotMatchImportService.ImportAsync(...)
+    ↓
+Imported / skipped summary
+```
+
+### Synchronization Contract
+
+The Application layer defines:
+
+```text
+src/SkillIssue.GG.Application/Riot/Interfaces/IRiotMatchHistorySyncService.cs
+```
+
+with:
+
+```csharp
+Task<RiotMatchHistorySyncResult> SyncAsync(
+    string puuid,
+    int start = 0,
+    int count = 20,
+    CancellationToken cancellationToken = default);
+```
+
+The result model is located at:
+
+```text
+src/SkillIssue.GG.Application/Riot/Models/RiotMatchHistorySyncResult.cs
+```
+
+and contains:
+
+```text
+Requested
+Imported
+Skipped
+```
+
+For a successful synchronization:
+
+```text
+Requested == Imported + Skipped
+```
+
+### Application Service
+
+The implementation is located at:
+
+```text
+src/SkillIssue.GG.Application/Riot/Services/RiotMatchHistorySyncService.cs
+```
+
+It coordinates:
+
+```text
+IRiotMatchHistoryService
+IRiotMatchImportService
+```
+
+The service does not depend directly on:
+
+```text
+HttpClient
+RiotApiClient
+Infrastructure DTOs
+SkillIssueDbContext
+EF Core
+Npgsql
+```
+
+### Validation
+
+The synchronization service validates:
+
+```text
+PUUID must not be null, empty, or whitespace
+start >= 0
+count >= 1
+count <= 100
+```
+
+Invalid input is rejected before dependency calls are made.
+
+### Match History Retrieval
+
+Match IDs are retrieved through:
+
+```text
+IRiotMatchHistoryService.GetMatchIdsAsync(...)
+```
+
+The synchronization service does not build Match-V5 URLs or perform HTTP calls directly.
+
+### Match Import
+
+Every returned Riot match ID is passed to:
+
+```text
+IRiotMatchImportService.ImportAsync(...)
+```
+
+The synchronization service therefore reuses the existing single-match import workflow for:
+
+```text
+Duplicate detection
+Match-V5 retrieval
+Domain mapping
+Persistence
+```
+
+These responsibilities are not duplicated.
+
+### Ordering
+
+Match IDs are processed sequentially in the same order returned by Riot.
+
+Parallel match imports are intentionally not introduced at this stage.
+
+This keeps synchronization behavior predictable and avoids adding concurrency and Riot rate-limit concerns prematurely.
+
+### Synchronization Result
+
+For each import result:
+
+```text
+Imported = true  -> Imported count increases
+Imported = false -> Skipped count increases
+```
+
+`Requested` is the number of match IDs returned by Riot.
+
+An empty history page is valid and returns:
+
+```text
+Requested = 0
+Imported = 0
+Skipped = 0
+```
+
+### Failure Behavior
+
+History retrieval failures are propagated.
+
+If importing a match fails, synchronization stops and the failure is propagated.
+
+The service does not currently implement:
+
+```text
+Retry behavior
+Partial-success recovery
+Error aggregation
+Resume state
+```
+
+### Cancellation
+
+The supplied `CancellationToken` is passed through to:
+
+```text
+IRiotMatchHistoryService.GetMatchIdsAsync(...)
+IRiotMatchImportService.ImportAsync(...)
+```
+
+Cancellation is not swallowed.
+
+### Dependency Injection
+
+`IRiotMatchHistorySyncService` is registered through the existing Infrastructure composition setup.
+
+### Testing
+
+Pure Application tests are located under:
+
+```text
+tests/SkillIssue.GG.Application.Tests/Riot/Services/
+```
+
+Coverage includes:
+
+- PUUID and pagination forwarding
+- Importing every returned match ID
+- Preserving Riot match order
+- Imported counts
+- Skipped counts
+- Mixed imported/skipped results
+- Empty history behavior
+- PUUID validation
+- Pagination validation
+- History retrieval failure propagation
+- Match import failure propagation
+- Stopping after an import failure
+- Cancellation token propagation
+
+These tests require no:
+
+```text
+PostgreSQL
+Docker
+HTTP
+Riot API
+```
+
+### Scope
+
+The current synchronization operation processes one requested Riot history page:
+
+```text
+start
+count
+```
+
+It does not automatically paginate through a player's complete match history.
+
+Full historical synchronization, background scheduling, retry behavior, and synchronization progress tracking remain separate concerns.
