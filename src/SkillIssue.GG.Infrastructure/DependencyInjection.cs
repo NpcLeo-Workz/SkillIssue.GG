@@ -1,7 +1,16 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using SkillIssue.GG.Application.Matches.Interfaces;
+using SkillIssue.GG.Application.Riot.Interfaces;
+using SkillIssue.GG.Application.Riot.Services;
 using SkillIssue.GG.Infrastructure.Persistence;
+using SkillIssue.GG.Infrastructure.Persistence.Repositories;
+using SkillIssue.GG.Infrastructure.Riot.Account;
+using SkillIssue.GG.Infrastructure.Riot.Configuration;
+using SkillIssue.GG.Infrastructure.Riot.Http;
+using SkillIssue.GG.Infrastructure.Riot.Match;
 
 namespace SkillIssue.GG.Infrastructure;
 
@@ -21,6 +30,38 @@ public static class DependencyInjection
 
         services.AddDbContext<SkillIssueDbContext>(options =>
             options.UseNpgsql(connectionString));
+
+        services.AddOptions<RiotApiOptions>()
+            .Bind(configuration.GetSection(RiotApiOptions.SectionName))
+            .Validate(options => !string.IsNullOrWhiteSpace(options.ApiKey),
+                "Riot API key is not configured.")
+            .Validate(options => !string.IsNullOrWhiteSpace(options.PlatformRoute),
+                "Riot platform route is not configured.")
+            .Validate(options => !string.IsNullOrWhiteSpace(options.RegionalRoute),
+                "Riot regional route is not configured.")
+            .ValidateOnStart();
+
+        services.AddHttpClient<RiotApiClient>((serviceProvider, httpClient) =>
+        {
+            var riotApiOptions = serviceProvider
+                .GetRequiredService<IOptions<RiotApiOptions>>()
+                .Value;
+
+            httpClient.DefaultRequestHeaders.Add(
+                "X-Riot-Token",
+                riotApiOptions.ApiKey);
+        });
+        // Add interface services
+        services.AddScoped<IRiotAccountService, RiotAccountService>();
+        services.AddScoped<IRiotMatchHistoryService, RiotMatchHistoryService>();
+        services.AddScoped<IRiotMatchService, RiotMatchService>();
+
+        // Add application services
+        services.AddScoped<IRiotMatchImportService, RiotMatchImportService>();
+        services.AddScoped<IRiotMatchHistorySyncService, RiotMatchHistorySyncService>();
+
+        // Add repositories
+        services.AddScoped<IMatchRepository, MatchRepository>();
 
         return services;
     }
