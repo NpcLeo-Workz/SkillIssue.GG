@@ -51,14 +51,16 @@ public static class DependencyInjection
                 "X-Riot-Token",
                 riotApiOptions.ApiKey);
         });
-
+        // Add interface services
         services.AddScoped<IRiotAccountService, RiotAccountService>();
         services.AddScoped<IRiotMatchHistoryService, RiotMatchHistoryService>();
         services.AddScoped<IRiotMatchService, RiotMatchService>();
+
+        // Add application services
         services.AddScoped<IRiotMatchImportService, RiotMatchImportService>();
+        services.AddScoped<IRiotMatchHistorySyncService, RiotMatchHistorySyncService>();
 
-
-
+        // Add repositories
         services.AddScoped<IMatchRepository, MatchRepository>();
 
         return services;
