@@ -1151,3 +1151,220 @@ Then verify the complete solution:
 dotnet build SkillIssue.GG.slnx
 dotnet test SkillIssue.GG.slnx
 ```
+
+## Riot Match Import Orchestration
+
+A single Riot match can now be imported through an Application-layer orchestration service.
+
+The flow is:
+
+```text
+Riot match ID
+    ↓
+IMatchRepository.ExistsByRiotMatchIdAsync(...)
+    ↓
+Already exists?
+    ├── Yes → return skipped result
+    └── No
+         ↓
+IRiotMatchService.GetMatchAsync(...)
+         ↓
+RiotMatchDomainMapper.Map(...)
+         ↓
+IMatchRepository.AddAsync(...)
+         ↓
+Return imported result
+```
+
+### Import Contract
+
+The Application layer defines:
+
+```text
+src/SkillIssue.GG.Application/Riot/Interfaces/IRiotMatchImportService.cs
+```
+
+with:
+
+```csharp
+Task<RiotMatchImportResult> ImportAsync(
+    string matchId,
+    CancellationToken cancellationToken = default);
+```
+
+The result model is:
+
+```text
+src/SkillIssue.GG.Application/Riot/Models/RiotMatchImportResult.cs
+```
+
+and contains:
+
+```text
+RiotMatchId
+Imported
+MatchId
+```
+
+For a newly imported match:
+
+```text
+Imported = true
+MatchId = generated Domain Match ID
+```
+
+For an already persisted match:
+
+```text
+Imported = false
+MatchId = null
+```
+
+### Application Service
+
+The implementation is located at:
+
+```text
+src/SkillIssue.GG.Application/Riot/Services/RiotMatchImportService.cs
+```
+
+It coordinates:
+
+```text
+IRiotMatchService
+IMatchRepository
+RiotMatchDomainMapper
+```
+
+The service does not depend directly on:
+
+```text
+HttpClient
+RiotApiClient
+Infrastructure DTOs
+SkillIssueDbContext
+EF Core
+Npgsql
+```
+
+### Duplicate Check
+
+The import service checks:
+
+```csharp
+IMatchRepository.ExistsByRiotMatchIdAsync(...)
+```
+
+before retrieving Riot match details.
+
+If the match already exists:
+
+- no Riot API lookup is performed
+- no mapping is performed
+- no persistence is performed
+- the import result reports `Imported = false`
+
+The database uniqueness constraint on Riot match IDs remains the final protection against concurrent duplicate inserts.
+
+### Match Retrieval
+
+For a match that is not yet persisted, the service retrieves Match-V5 data through:
+
+```text
+IRiotMatchService
+```
+
+This keeps HTTP and Riot transport concerns behind the existing Application abstraction.
+
+### Domain Mapping
+
+The returned:
+
+```text
+RiotMatchDetails
+```
+
+is mapped using the existing:
+
+```text
+RiotMatchDomainMapper
+```
+
+The import service does not duplicate mapping logic.
+
+### Persistence
+
+The mapped Domain aggregate is persisted through:
+
+```text
+IMatchRepository
+```
+
+The import service does not access `SkillIssueDbContext` or EF Core directly.
+
+### Cancellation
+
+The supplied `CancellationToken` is passed through to:
+
+```text
+IMatchRepository.ExistsByRiotMatchIdAsync(...)
+IRiotMatchService.GetMatchAsync(...)
+IMatchRepository.AddAsync(...)
+```
+
+Cancellation exceptions are not swallowed.
+
+### Dependency Injection
+
+`IRiotMatchImportService` is registered through the existing Infrastructure composition registration alongside the other application-facing implementations.
+
+### Testing
+
+Pure Application tests are located under:
+
+```text
+tests/SkillIssue.GG.Application.Tests/Riot/Services/
+```
+
+Coverage includes:
+
+- Importing a missing match
+- Duplicate check before Riot retrieval
+- Riot match retrieval
+- Domain mapping
+- Match persistence
+- Imported result
+- Generated Domain Match ID
+- Already imported match behavior
+- Skipping Riot lookup for existing matches
+- Skipping persistence for existing matches
+- Invalid match ID validation
+- Riot service failure propagation
+- Repository failure propagation
+- Cancellation token propagation
+
+These tests require no:
+
+```text
+PostgreSQL
+Docker
+HTTP
+Riot API
+```
+
+### Scope
+
+This service imports exactly one Riot match.
+
+It does not:
+
+```text
+Retrieve match history
+Import multiple matches
+Synchronize a player's history
+Run background jobs
+Schedule imports
+Calculate statistics
+```
+
+Those responsibilities remain separate application workflows.
