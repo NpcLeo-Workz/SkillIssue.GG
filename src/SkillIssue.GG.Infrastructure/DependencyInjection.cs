@@ -62,6 +62,7 @@ public static class DependencyInjection
         services.AddScoped<IRiotMatchImportService, RiotMatchImportService>();
         services.AddScoped<IRiotMatchHistorySyncService, RiotMatchHistorySyncService>();
         services.AddScoped<IRiotPlayerSyncService, RiotPlayerSyncService>();
+        services.AddScoped<IRiotPlayerAndMatchSyncService, RiotPlayerAndMatchSyncService>();
 
         // Add repositories
         services.AddScoped<IMatchRepository, MatchRepository>();

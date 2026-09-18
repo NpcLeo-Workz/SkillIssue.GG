@@ -1824,3 +1824,322 @@ Player updates
 Riot ID rename handling
 Region migration
 ```
+
+## Player and Match History Synchronization
+
+The Application layer provides a top-level workflow for synchronizing a Riot player and one page of their match history.
+
+The complete flow is:
+
+```text
+Game Name + Tag Line + Region
+        ↓
+IRiotPlayerAndMatchSyncService
+        ↓
+IRiotPlayerSyncService
+        ↓
+Riot account resolution
+        ↓
+Existing or newly persisted Player
+        ↓
+Player PUUID
+        ↓
+IRiotMatchHistorySyncService
+        ↓
+Riot match IDs
+        ↓
+IRiotMatchImportService
+        ↓
+Existing matches skipped / new matches persisted
+        ↓
+Combined synchronization result
+```
+
+### Synchronization Contract
+
+The Application layer defines:
+
+```text
+src/SkillIssue.GG.Application/Riot/Interfaces/IRiotPlayerAndMatchSyncService.cs
+```
+
+with:
+
+```csharp
+Task<RiotPlayerAndMatchSyncResult> SyncAsync(
+    string gameName,
+    string tagLine,
+    string region,
+    int start = 0,
+    int count = 20,
+    CancellationToken cancellationToken = default);
+```
+
+### Result Model
+
+The combined result is located at:
+
+```text
+src/SkillIssue.GG.Application/Riot/Models/RiotPlayerAndMatchSyncResult.cs
+```
+
+and contains:
+
+```text
+PlayerId
+Puuid
+PlayerCreated
+RequestedMatches
+ImportedMatches
+SkippedMatches
+```
+
+The Player fields come from the Player synchronization result.
+
+The Match fields come from the match-history synchronization result.
+
+For successful match synchronization:
+
+```text
+RequestedMatches == ImportedMatches + SkippedMatches
+```
+
+### Application Service
+
+The implementation is located at:
+
+```text
+src/SkillIssue.GG.Application/Riot/Services/RiotPlayerAndMatchSyncService.cs
+```
+
+It coordinates only:
+
+```text
+IRiotPlayerSyncService
+IRiotMatchHistorySyncService
+```
+
+It does not directly depend on:
+
+```text
+IRiotAccountService
+IRiotMatchHistoryService
+IRiotMatchImportService
+IPlayerRepository
+IMatchRepository
+HttpClient
+RiotApiClient
+SkillIssueDbContext
+EF Core
+Npgsql
+Infrastructure DTOs
+```
+
+This keeps the top-level workflow focused on orchestration while reusing the existing lower-level use cases.
+
+### Execution Order
+
+Synchronization occurs sequentially:
+
+```text
+1. Validate input
+2. Synchronize Player
+3. Obtain the resolved Player PUUID
+4. Synchronize match history using that PUUID
+5. Return the combined result
+```
+
+Player synchronization always occurs before match-history synchronization.
+
+The PUUID returned by `IRiotPlayerSyncService` is passed to:
+
+```text
+IRiotMatchHistorySyncService.SyncAsync(...)
+```
+
+### Existing and New Players
+
+Match synchronization occurs regardless of whether Player synchronization returns:
+
+```text
+PlayerCreated = true
+```
+
+or:
+
+```text
+PlayerCreated = false
+```
+
+An existing local Player therefore still has their requested match-history page synchronized.
+
+### Pagination
+
+The workflow synchronizes one requested Match-V5 history page.
+
+The supplied:
+
+```text
+start
+count
+```
+
+values are forwarded unchanged to `IRiotMatchHistorySyncService`.
+
+Current validation rules are:
+
+```text
+start >= 0
+count >= 1
+count <= 100
+```
+
+The default request is:
+
+```text
+start = 0
+count = 20
+```
+
+Automatic pagination through a complete Riot match history is not performed.
+
+### Validation
+
+The following values must not be null, empty, or whitespace:
+
+```text
+gameName
+tagLine
+region
+```
+
+Pagination is also validated before synchronization begins.
+
+Invalid input is rejected before either synchronization dependency is called.
+
+### Failure Behavior
+
+If Player synchronization fails:
+
+```text
+Player synchronization
+        ↓ failure
+Match synchronization does not execute
+```
+
+If Match synchronization fails after successful Player synchronization, the failure is propagated.
+
+The workflow does not currently implement:
+
+```text
+Retries
+Error aggregation
+Rollback of a successfully synchronized Player
+Partial-success recovery
+Background recovery
+```
+
+Because the two operations are separate use cases, successful Player persistence is not rolled back when later Match synchronization fails.
+
+### Cancellation
+
+The supplied `CancellationToken` is passed through to:
+
+```text
+IRiotPlayerSyncService.SyncAsync(...)
+IRiotMatchHistorySyncService.SyncAsync(...)
+```
+
+Cancellation is not swallowed.
+
+### Dependency Injection
+
+The combined service is registered through the existing Infrastructure composition setup:
+
+```text
+IRiotPlayerAndMatchSyncService
+    ->
+RiotPlayerAndMatchSyncService
+```
+
+### Testing
+
+Pure Application tests are located under:
+
+```text
+tests/SkillIssue.GG.Application.Tests/Riot/Services/
+```
+
+Coverage includes:
+
+- Player synchronization input forwarding
+- Player synchronization before Match synchronization
+- PUUID forwarding to Match synchronization
+- `start` forwarding
+- `count` forwarding
+- newly created Player behavior
+- existing Player behavior
+- combined Player result
+- combined Match counts
+- input validation
+- pagination validation
+- no dependency calls for invalid input
+- Player synchronization failure behavior
+- Match synchronization failure propagation
+- cancellation token propagation
+- dependency call ordering
+
+These tests require no:
+
+```text
+Docker
+PostgreSQL
+HTTP
+Riot API
+```
+
+### Current End-to-End Riot Ingestion Pipeline
+
+The current ingestion architecture is:
+
+```text
+Riot ID
+    ↓
+Account-V1 lookup
+    ↓
+Player synchronization
+    ↓
+Player persistence
+    ↓
+PUUID
+    ↓
+Match-V5 history lookup
+    ↓
+Match-V5 details lookup
+    ↓
+Riot → Domain mapping
+    ↓
+Match persistence
+    ↓
+Imported / skipped synchronization summary
+```
+
+This provides the Application-layer ingestion pipeline needed to retrieve and persist Player and Match data without exposing UI, API, background-job, or analysis concerns yet.
+
+### Scope
+
+The current top-level synchronization operation processes one requested page of Riot match history.
+
+It does not currently provide:
+
+```text
+Full-history automatic pagination
+Background synchronization
+Scheduled synchronization
+Retries
+Rate-limit handling
+Parallel imports
+Player updates
+Statistics calculation
+Recommendations
+```
