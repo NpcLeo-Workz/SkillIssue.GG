@@ -362,3 +362,138 @@ dotnet test tests/SkillIssue.GG.Infrastructure.IntegrationTests/SkillIssue.GG.In
 dotnet build SkillIssue.GG.slnx
 dotnet test SkillIssue.GG.slnx
 ```
+
+## Player Repository
+
+Player persistence is exposed to the Application layer through:
+
+```text
+src/SkillIssue.GG.Application/Players/Interfaces/IPlayerRepository.cs
+```
+
+The Infrastructure implementation is located at:
+
+```text
+src/SkillIssue.GG.Infrastructure/Persistence/Repositories/PlayerRepository.cs
+```
+
+The repository uses the existing:
+
+```text
+SkillIssueDbContext
+```
+
+and PostgreSQL persistence configuration.
+
+### Supported Operations
+
+The repository currently supports:
+
+```csharp
+Task<Player?> GetByPuuidAsync(
+    string puuid,
+    CancellationToken cancellationToken = default);
+
+Task AddAsync(
+    Player player,
+    CancellationToken cancellationToken = default);
+```
+
+### GetByPuuidAsync
+
+`GetByPuuidAsync` retrieves a Player using Riot's PUUID as the lookup key.
+
+Behavior:
+
+```text
+Matching Player exists
+    -> returns Player
+
+No matching Player exists
+    -> returns null
+```
+
+The query uses:
+
+```text
+AsNoTracking()
+```
+
+because the repository is performing a read-only lookup.
+
+Invalid PUUID values are rejected before database access:
+
+```text
+null
+empty
+whitespace
+```
+
+### AddAsync
+
+`AddAsync` adds the supplied Player to the DbContext and immediately persists it using:
+
+```text
+SaveChangesAsync
+```
+
+A null Player is rejected before database access.
+
+This follows the same narrow repository approach used by `MatchRepository`.
+
+### Uniqueness
+
+Player PUUID uniqueness is enforced by the existing database schema.
+
+Attempting to persist multiple Players with the same PUUID results in a database update failure.
+
+The repository does not silently ignore or overwrite duplicate Players.
+
+### Architecture
+
+The dependency direction remains:
+
+```text
+Application
+    ↓
+IPlayerRepository
+    ↓ implemented by
+Infrastructure
+    ↓
+PlayerRepository
+    ↓
+SkillIssueDbContext
+    ↓
+PostgreSQL
+```
+
+The Domain project remains persistence-agnostic and contains no EF Core dependencies.
+
+### Dependency Injection
+
+The repository is registered through the Infrastructure composition setup:
+
+```text
+IPlayerRepository
+    ->
+PlayerRepository
+```
+
+### Integration Testing
+
+Player repository behavior is verified using the existing PostgreSQL Testcontainers infrastructure.
+
+Tests cover:
+
+```text
+Player persistence
+PUUID lookup
+Unknown PUUID behavior
+Field preservation
+Duplicate PUUID constraints
+Invalid PUUID validation
+Null Player validation
+Cancellation
+```
+
+These are database integration tests and require Docker to be available.
