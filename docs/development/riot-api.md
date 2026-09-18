@@ -1595,3 +1595,232 @@ count
 It does not automatically paginate through a player's complete match history.
 
 Full historical synchronization, background scheduling, retry behavior, and synchronization progress tracking remain separate concerns.
+
+## Riot Player Profile Synchronization
+
+Riot account lookup can be coordinated with local Player persistence through the Application layer.
+
+The synchronization flow is:
+
+```text
+Game Name + Tag Line + Region
+        ↓
+IRiotPlayerSyncService
+        ↓
+IRiotAccountService
+        ↓
+RiotAccount
+        ↓
+IPlayerRepository.GetByPuuidAsync(...)
+        ↓
+Existing Player or new Player persistence
+```
+
+### Synchronization Contract
+
+The Application layer defines:
+
+```text
+src/SkillIssue.GG.Application/Riot/Interfaces/IRiotPlayerSyncService.cs
+```
+
+with:
+
+```csharp
+Task<RiotPlayerSyncResult> SyncAsync(
+    string gameName,
+    string tagLine,
+    string region,
+    CancellationToken cancellationToken = default);
+```
+
+The result model is located at:
+
+```text
+src/SkillIssue.GG.Application/Riot/Models/RiotPlayerSyncResult.cs
+```
+
+and contains:
+
+```text
+PlayerId
+Puuid
+Created
+```
+
+`Created` indicates whether synchronization persisted a new local Player.
+
+### Application Service
+
+The implementation is located at:
+
+```text
+src/SkillIssue.GG.Application/Riot/Services/RiotPlayerSyncService.cs
+```
+
+It coordinates:
+
+```text
+IRiotAccountService
+IPlayerRepository
+```
+
+The service does not depend directly on:
+
+```text
+HttpClient
+RiotApiClient
+Infrastructure Riot DTOs
+SkillIssueDbContext
+EF Core
+Npgsql
+```
+
+### Account Resolution
+
+The supplied Riot ID is resolved through:
+
+```text
+IRiotAccountService
+```
+
+Account resolution occurs before local Player lookup.
+
+The PUUID returned by Riot is treated as the canonical identifier for determining whether the Player already exists locally.
+
+### New Players
+
+When no Player exists for the resolved PUUID, a new Domain Player is created using:
+
+```text
+Player.Puuid  <- RiotAccount.Puuid
+Player.Name   <- RiotAccount.GameName
+Player.Region <- supplied region
+```
+
+The existing `Player` Domain constructor remains responsible for Domain invariants.
+
+The Player is persisted through:
+
+```text
+IPlayerRepository.AddAsync(...)
+```
+
+The synchronization result returns:
+
+```text
+Created = true
+```
+
+### Existing Players
+
+When a Player already exists for the resolved PUUID:
+
+```text
+IPlayerRepository.AddAsync(...)
+```
+
+is not called.
+
+The existing Player ID and PUUID are returned with:
+
+```text
+Created = false
+```
+
+This workflow does not update an existing Player's name or region.
+
+Riot ID rename handling and region changes remain separate concerns.
+
+### Validation
+
+The synchronization service rejects invalid input before calling its dependencies.
+
+The following values must not be null, empty, or whitespace:
+
+```text
+gameName
+tagLine
+region
+```
+
+### Failure Behavior
+
+Failures from account resolution, Player lookup, and Player persistence are propagated.
+
+The synchronization service does not currently implement:
+
+```text
+Retries
+Failure swallowing
+Fallback resolution
+Partial-success recovery
+```
+
+### Cancellation
+
+The supplied `CancellationToken` is propagated to:
+
+```text
+IRiotAccountService
+IPlayerRepository.GetByPuuidAsync(...)
+IPlayerRepository.AddAsync(...)
+```
+
+Cancellation is not swallowed.
+
+### Dependency Injection
+
+`IRiotPlayerSyncService` is registered through the existing Infrastructure composition setup:
+
+```text
+IRiotPlayerSyncService
+    ->
+RiotPlayerSyncService
+```
+
+### Testing
+
+Pure Application tests are located under:
+
+```text
+tests/SkillIssue.GG.Application.Tests/Riot/Services/
+```
+
+Coverage includes:
+
+- Riot ID forwarding
+- PUUID-based repository lookup
+- existing Player behavior
+- new Player creation
+- Player field mapping
+- persistence behavior
+- input validation
+- account lookup failure propagation
+- repository lookup failure propagation
+- repository persistence failure propagation
+- cancellation token propagation
+
+These tests require no:
+
+```text
+Docker
+PostgreSQL
+HTTP
+Riot API
+```
+
+### Scope
+
+Player-profile synchronization currently resolves and persists the Player only.
+
+It does not automatically trigger:
+
+```text
+Match-history synchronization
+Match imports
+Background synchronization
+Player updates
+Riot ID rename handling
+Region migration
+```
