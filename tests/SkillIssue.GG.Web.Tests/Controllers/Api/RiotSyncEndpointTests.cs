@@ -2,7 +2,6 @@ using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using SkillIssue.GG.Application.Riot.Interfaces;
@@ -18,37 +17,34 @@ public sealed class RiotSyncEndpointTests
         var fakeService = new FakeSyncService();
 
         using var factory = new WebApplicationFactory<Program>()
-    .WithWebHostBuilder(builder =>
-    {
-        builder.UseEnvironment("Development");
+            .WithWebHostBuilder(builder =>
+            {
+                builder.UseEnvironment("Development");
 
-        builder.ConfigureAppConfiguration((_, configuration) =>
-        {
-            configuration.AddInMemoryCollection(
-                new Dictionary<string, string?>
+                builder.UseSetting(
+                    "ConnectionStrings:PostgreSQL",
+                    "Host=localhost;Database=skillissuegg_test;Username=test;Password=test");
+
+                builder.UseSetting(
+                    "RiotApi:ApiKey",
+                    "test-api-key");
+
+                builder.UseSetting(
+                    "RiotApi:PlatformRoute",
+                    "euw1");
+
+                builder.UseSetting(
+                    "RiotApi:RegionalRoute",
+                    "europe");
+
+                builder.ConfigureServices(services =>
                 {
-                    ["ConnectionStrings:PostgreSQL"] =
-                        "Host=localhost;Database=skillissuegg_test;Username=test;Password=test",
+                    services.RemoveAll<IRiotPlayerAndMatchSyncService>();
 
-                    ["RiotApi:ApiKey"] =
-                        "test-api-key",
-
-                    ["RiotApi:PlatformRoute"] =
-                        "euw1",
-
-                    ["RiotApi:RegionalRoute"] =
-                        "europe"
+                    services.AddSingleton<IRiotPlayerAndMatchSyncService>(
+                        fakeService);
                 });
-        });
-
-        builder.ConfigureServices(services =>
-        {
-            services.RemoveAll<IRiotPlayerAndMatchSyncService>();
-
-            services.AddSingleton<IRiotPlayerAndMatchSyncService>(
-                fakeService);
-        });
-    });
+            });
 
         using var client = factory.CreateClient(
             new WebApplicationFactoryClientOptions
