@@ -2143,3 +2143,214 @@ Player updates
 Statistics calculation
 Recommendations
 ```
+
+## Riot Synchronization API
+
+The Web layer exposes the Player and Match-history synchronization workflow through an HTTP API endpoint.
+
+### Endpoint
+
+```http
+POST /api/riot/sync
+```
+
+The endpoint delegates synchronization to:
+
+```text
+IRiotPlayerAndMatchSyncService
+```
+
+The controller does not directly perform Riot API requests, Domain mapping, or persistence.
+
+The HTTP flow is:
+
+```text
+HTTP POST /api/riot/sync
+        ↓
+RiotSyncController
+        ↓
+IRiotPlayerAndMatchSyncService
+        ↓
+Player synchronization
+        ↓
+Match-history synchronization
+        ↓
+RiotSyncResponse
+        ↓
+200 OK
+```
+
+### Request
+
+The request body uses:
+
+```text
+src/SkillIssue.GG.Web/Models/Api/RiotSyncRequest.cs
+```
+
+Example:
+
+```json
+{
+  "gameName": "Player",
+  "tagLine": "EUW",
+  "region": "euw1",
+  "start": 0,
+  "count": 20
+}
+```
+
+Request fields:
+
+| Field | Required | Description |
+| --- | --- | --- |
+| `gameName` | Yes | Riot game name |
+| `tagLine` | Yes | Riot tag line |
+| `region` | Yes | Region stored with the local Player |
+| `start` | No | Match-history offset; defaults to `0` |
+| `count` | No | Number of Match IDs requested; defaults to `20` |
+
+Pagination constraints are:
+
+```text
+start >= 0
+1 <= count <= 100
+```
+
+### Validation
+
+The Web request model uses ASP.NET Core validation for the HTTP boundary.
+
+Invalid requests are rejected with:
+
+```http
+400 Bad Request
+```
+
+before `IRiotPlayerAndMatchSyncService` executes.
+
+The Application layer also retains its own validation and does not depend on the Web layer for correctness.
+
+### Successful Response
+
+Successful synchronization returns:
+
+```http
+200 OK
+```
+
+using:
+
+```text
+src/SkillIssue.GG.Web/Models/Api/RiotSyncResponse.cs
+```
+
+Example:
+
+```json
+{
+  "playerId": "00000000-0000-0000-0000-000000000000",
+  "puuid": "example-puuid",
+  "playerCreated": true,
+  "requestedMatches": 20,
+  "importedMatches": 15,
+  "skippedMatches": 5
+}
+```
+
+Response fields:
+
+| Field | Description |
+| --- | --- |
+| `playerId` | Local Player identifier |
+| `puuid` | Riot PUUID resolved during Player synchronization |
+| `playerCreated` | Whether a new local Player was persisted |
+| `requestedMatches` | Number of Match IDs returned for this synchronization |
+| `importedMatches` | Number of new Matches imported |
+| `skippedMatches` | Number of Matches already present locally |
+
+For successful Match synchronization:
+
+```text
+requestedMatches == importedMatches + skippedMatches
+```
+
+### Cancellation
+
+The controller passes:
+
+```text
+HttpContext.RequestAborted
+```
+
+to `IRiotPlayerAndMatchSyncService`.
+
+HTTP request cancellation can therefore propagate through the Application synchronization pipeline.
+
+### Web Layer Boundary
+
+The API controller depends only on:
+
+```text
+IRiotPlayerAndMatchSyncService
+```
+
+It does not directly depend on:
+
+```text
+IRiotAccountService
+IRiotMatchHistoryService
+IRiotMatchImportService
+IRiotPlayerSyncService
+IRiotMatchHistorySyncService
+IPlayerRepository
+IMatchRepository
+RiotApiClient
+HttpClient
+SkillIssueDbContext
+EF Core
+Npgsql
+```
+
+Web-specific request and response models are used instead of exposing Application, Domain, or Infrastructure models directly.
+
+### Routing
+
+`Program.cs` registers MVC and API controllers using:
+
+```csharp
+builder.Services.AddControllersWithViews();
+```
+
+Attribute-routed API controllers are mapped using:
+
+```csharp
+app.MapControllers();
+```
+
+The existing conventional MVC route remains available for Razor/MVC pages.
+
+### Testing
+
+Web tests are located in:
+
+```text
+tests/SkillIssue.GG.Web.Tests
+```
+
+Controller tests verify:
+
+- request forwarding
+- response mapping
+- `200 OK`
+- request cancellation propagation
+
+HTTP pipeline tests use `WebApplicationFactory` to verify that invalid request models produce:
+
+```http
+400 Bad Request
+```
+
+without invoking the synchronization service.
+
+The Web tests do not call the real Riot API and do not require a Riot API key.
