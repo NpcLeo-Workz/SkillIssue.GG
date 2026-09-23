@@ -286,6 +286,190 @@ public sealed class MatchRepositoryTests(PostgreSqlFixture fixture) : IClassFixt
                 cancellationTokenSource.Token));
     }
 
+    [Fact]
+    public async Task GetByPlayerPuuidAsync_ReturnsMatchContainingPlayer()
+    {
+        var repository = new MatchRepository(_fixture.CreateDbContext());
+
+        var match = CreateMatch(
+            $"EUW1_{Guid.NewGuid():N}",
+            DateTimeOffset.UtcNow,
+            "target-puuid",
+            "other-puuid");
+
+        await repository.AddAsync(match);
+
+        var result = await repository.GetByPlayerPuuidAsync(
+            "target-puuid",
+            skip: 0,
+            take: 20);
+
+        Assert.Contains(
+            result,
+            returned => returned.RiotMatchId == match.RiotMatchId);
+    }
+
+    [Fact]
+    public async Task GetByPlayerPuuidAsync_DoesNotReturnUnrelatedMatch()
+    {
+        var repository = new MatchRepository(_fixture.CreateDbContext());
+
+        var match = CreateMatch(
+            $"EUW1_{Guid.NewGuid():N}",
+            DateTimeOffset.UtcNow,
+            "unrelated-puuid");
+
+        await repository.AddAsync(match);
+
+        var result = await repository.GetByPlayerPuuidAsync(
+            $"missing-{Guid.NewGuid():N}",
+            skip: 0,
+            take: 20);
+
+        Assert.DoesNotContain(
+            result,
+            returned => returned.RiotMatchId == match.RiotMatchId);
+    }
+
+    [Fact]
+    public async Task GetByPlayerPuuidAsync_OrdersNewestFirst()
+    {
+        var repository = new MatchRepository(_fixture.CreateDbContext());
+        var puuid = $"player-{Guid.NewGuid():N}";
+
+        var oldest = CreateMatch(
+            $"EUW1_{Guid.NewGuid():N}",
+            new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero),
+            puuid);
+
+        var newest = CreateMatch(
+            $"EUW1_{Guid.NewGuid():N}",
+            new DateTimeOffset(2026, 1, 3, 12, 0, 0, TimeSpan.Zero),
+            puuid);
+
+        var middle = CreateMatch(
+            $"EUW1_{Guid.NewGuid():N}",
+            new DateTimeOffset(2026, 1, 2, 12, 0, 0, TimeSpan.Zero),
+            puuid);
+
+        await repository.AddAsync(oldest);
+        await repository.AddAsync(newest);
+        await repository.AddAsync(middle);
+
+        var result = await repository.GetByPlayerPuuidAsync(
+            puuid,
+            skip: 0,
+            take: 20);
+
+        Assert.Equal(
+            [
+            newest.RiotMatchId,
+            middle.RiotMatchId,
+            oldest.RiotMatchId
+            ],
+            result.Select(match => match.RiotMatchId));
+    }
+
+    [Fact]
+    public async Task GetByPlayerPuuidAsync_AppliesPaginationAfterOrdering()
+    {
+        var repository = new MatchRepository(_fixture.CreateDbContext());
+        var puuid = $"player-{Guid.NewGuid():N}";
+
+        var oldest = CreateMatch(
+            $"EUW1_{Guid.NewGuid():N}",
+            new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero),
+            puuid);
+
+        var middle = CreateMatch(
+            $"EUW1_{Guid.NewGuid():N}",
+            new DateTimeOffset(2026, 1, 2, 12, 0, 0, TimeSpan.Zero),
+            puuid);
+
+        var newest = CreateMatch(
+            $"EUW1_{Guid.NewGuid():N}",
+            new DateTimeOffset(2026, 1, 3, 12, 0, 0, TimeSpan.Zero),
+            puuid);
+
+        await repository.AddAsync(oldest);
+        await repository.AddAsync(middle);
+        await repository.AddAsync(newest);
+
+        var result = await repository.GetByPlayerPuuidAsync(
+            puuid,
+            skip: 1,
+            take: 1);
+
+        var returnedMatch = Assert.Single(result);
+
+        Assert.Equal(
+            middle.RiotMatchId,
+            returnedMatch.RiotMatchId);
+    }
+
+    [Fact]
+    public async Task GetByPlayerPuuidAsync_LoadsParticipants()
+    {
+        var repository = new MatchRepository(_fixture.CreateDbContext());
+        var puuid = $"player-{Guid.NewGuid():N}";
+
+        var match = CreateMatch(
+            $"EUW1_{Guid.NewGuid():N}",
+            DateTimeOffset.UtcNow,
+            puuid,
+            "another-player");
+
+        await repository.AddAsync(match);
+
+        var result = await repository.GetByPlayerPuuidAsync(
+            puuid,
+            skip: 0,
+            take: 20);
+
+        var returnedMatch = Assert.Single(result);
+
+        Assert.Equal(2, returnedMatch.Participants.Count);
+
+        Assert.Contains(
+            returnedMatch.Participants,
+            participant => participant.PlayerPuuid == puuid);
+
+        Assert.Contains(
+            returnedMatch.Participants,
+            participant => participant.PlayerPuuid == "another-player");
+    }
+
+    [Fact]
+    public async Task GetByPlayerPuuidAsync_WhenNoMatchesExist_ReturnsEmptyCollection()
+    {
+        var repository = new MatchRepository(_fixture.CreateDbContext());
+
+        var result = await repository.GetByPlayerPuuidAsync(
+            $"missing-{Guid.NewGuid():N}",
+            skip: 0,
+            take: 20);
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task GetByPlayerPuuidAsync_WhenCancelled_ThrowsOperationCanceledException()
+    {
+        var repository = new MatchRepository(_fixture.CreateDbContext());
+
+        using var cancellationTokenSource =
+            new CancellationTokenSource();
+
+        cancellationTokenSource.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => repository.GetByPlayerPuuidAsync(
+                "test-puuid",
+                skip: 0,
+                take: 20,
+                cancellationTokenSource.Token));
+    }
+
     private static Match CreateMatch()
     {
         var startedAt = DateTimeOffset.UtcNow.AddMinutes(-30);
@@ -340,7 +524,56 @@ public sealed class MatchRepositoryTests(PostgreSqlFixture fixture) : IClassFixt
 
         return match;
     }
+    private static Match CreateMatch(
+    string riotMatchId,
+    DateTimeOffset startedAt,
+    params string[] participantPuuids)
+    {
+        var match = new Match(
+            riotMatchId: riotMatchId,
+            riotGameId: Random.Shared.NextInt64(1, long.MaxValue),
+            dataVersion: "2",
+            gameVersion: "16.15.1.1234",
+            gameMode: "CLASSIC",
+            gameType: "MATCHED_GAME",
+            mapId: 11,
+            queueId: 420,
+            platformId: "EUW1",
+            gameCreatedAt: startedAt,
+            startedAt: startedAt,
+            endedAt: startedAt.AddMinutes(30),
+            duration: TimeSpan.FromMinutes(30),
+            endOfGameResult: "GameComplete");
 
+        for (var index = 0; index < participantPuuids.Length; index++)
+        {
+            var participant = new MatchParticipant(
+                matchId: match.Id,
+                playerPuuid: participantPuuids[index],
+                participantId: index + 1,
+                teamId: index < 5 ? 100 : 200,
+                championId: index + 1,
+                teamPosition: "MIDDLE",
+                kills: 5,
+                deaths: 3,
+                assists: 7,
+                goldEarned: 12000,
+                goldSpent: 11000,
+                totalMinionsKilled: 200,
+                neutralMinionsKilled: 10,
+                visionScore: 25,
+                wardsPlaced: 8,
+                wardsKilled: 2,
+                totalDamageDealtToChampions: 20000,
+                totalDamageTaken: 15000,
+                timePlayed: TimeSpan.FromMinutes(30),
+                won: true);
+
+            match.AddParticipant(participant);
+        }
+
+        return match;
+    }
     private static Match CreateMatchWithRiotMatchId(
     string riotMatchId)
     {

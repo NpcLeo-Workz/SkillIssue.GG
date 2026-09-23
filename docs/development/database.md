@@ -497,3 +497,202 @@ Cancellation
 ```
 
 These are database integration tests and require Docker to be available.
+
+## Player Match History Queries
+
+The Application layer provides a read-only query for retrieving imported Matches belonging to a Player.
+
+The read path is:
+
+```text
+Player PUUID
+    ↓
+IPlayerMatchHistoryService
+    ↓
+PlayerMatchHistoryService
+    ↓
+IMatchRepository
+    ↓
+MatchRepository
+    ↓
+PostgreSQL
+```
+
+This workflow operates entirely on locally persisted data and does not call the Riot API.
+
+### Application Contract
+
+The query is exposed through:
+
+```text
+src/SkillIssue.GG.Application/Matches/Interfaces/IPlayerMatchHistoryService.cs
+```
+
+with:
+
+```csharp
+Task<IReadOnlyList<Match>> GetAsync(
+    string puuid,
+    int skip = 0,
+    int take = 20,
+    CancellationToken cancellationToken = default);
+```
+
+The Application service validates input and delegates persistence access to `IMatchRepository`.
+
+Validation rules are:
+
+```text
+puuid must not be null, empty, or whitespace
+skip >= 0
+1 <= take <= 100
+```
+
+Invalid input is rejected before the repository is accessed.
+
+### Persistence Query
+
+`IMatchRepository` exposes:
+
+```csharp
+Task<IReadOnlyList<Match>> GetByPlayerPuuidAsync(
+    string puuid,
+    int skip,
+    int take,
+    CancellationToken cancellationToken = default);
+```
+
+The Infrastructure implementation queries Matches where at least one persisted participant satisfies:
+
+```text
+MatchParticipant.PlayerPuuid == requested PUUID
+```
+
+The filtering is performed by PostgreSQL through EF Core rather than loading all Matches into application memory.
+
+### Ordering
+
+Player Match history is returned newest first using:
+
+```text
+StartedAt descending
+```
+
+Ordering occurs before pagination.
+
+Conceptually:
+
+```text
+Matching Matches
+    ↓
+OrderByDescending(StartedAt)
+    ↓
+Skip(skip)
+    ↓
+Take(take)
+```
+
+### Pagination
+
+The query uses offset pagination.
+
+Defaults at the Application boundary are:
+
+```text
+skip = 0
+take = 20
+```
+
+The maximum page size is:
+
+```text
+take = 100
+```
+
+`Skip` and `Take` are applied as part of the persistence query so the entire Player Match history is not loaded into memory.
+
+### Aggregate Loading
+
+Returned `Match` aggregates include their `Participants`.
+
+This allows callers to inspect the requested Player's persisted `MatchParticipant` data, including Match statistics already stored in the Domain model.
+
+The Player PUUID filter determines which Matches are returned; it does not restrict the loaded participant collection to only the requested Player.
+
+For example:
+
+```text
+Match
+├── requested Player participant
+├── teammate participant
+├── teammate participant
+├── opponent participant
+└── ...
+```
+
+The complete persisted participant collection for each returned Match is available to the caller.
+
+### Read-Only Behavior
+
+The persistence query uses:
+
+```csharp
+AsNoTracking()
+```
+
+because Player Match-history retrieval is a read-only workflow.
+
+No Match or MatchParticipant entities are modified by this query.
+
+### Cancellation
+
+The supplied `CancellationToken` is propagated through:
+
+```text
+IPlayerMatchHistoryService
+    ↓
+IMatchRepository
+    ↓
+EF Core asynchronous query
+```
+
+and is supplied to the asynchronous database operation.
+
+### External Service Boundary
+
+Player Match-history retrieval does not depend on:
+
+```text
+Riot API
+RiotApiClient
+HttpClient
+IRiotMatchHistoryService
+IRiotMatchService
+IRiotMatchImportService
+```
+
+Only Matches that have already been imported into PostgreSQL are returned.
+
+If a Player has no locally persisted Matches, the query returns an empty collection. It does not attempt to retrieve missing history from Riot.
+
+### Testing
+
+Pure Application tests verify:
+
+- PUUID forwarding
+- pagination forwarding
+- repository result forwarding
+- empty results
+- validation before repository access
+- repository failure propagation
+- cancellation token propagation
+
+PostgreSQL integration tests verify:
+
+- filtering by participant PUUID
+- exclusion of unrelated Matches
+- newest-first ordering
+- pagination after ordering
+- participant aggregate loading
+- empty histories
+- cancellation behavior
