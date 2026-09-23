@@ -279,5 +279,14 @@ public sealed class RiotMatchImportServiceTests
 
             return Task.CompletedTask;
         }
+
+        public Task<IReadOnlyList<Match>> GetByPlayerPuuidAsync(
+            string puuid,
+            int skip,
+            int take,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<Match>>([]);
+        }
     }
 }

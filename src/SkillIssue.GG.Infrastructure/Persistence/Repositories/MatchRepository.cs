@@ -33,4 +33,22 @@ public sealed class MatchRepository(SkillIssueDbContext dbContext) : IMatchRepos
 
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task<IReadOnlyList<Match>> GetByPlayerPuuidAsync(
+    string puuid,
+    int skip,
+    int take,
+    CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.Matches
+            .AsNoTracking()
+            .Where(match =>
+                match.Participants.Any(
+                    participant => participant.PlayerPuuid == puuid))
+            .OrderByDescending(match => match.StartedAt)
+            .Skip(skip)
+            .Take(take)
+            .Include(match => match.Participants)
+            .ToListAsync(cancellationToken);
+    }
 }
