@@ -190,3 +190,509 @@ Verify that:
 This is expected before the initial EF Core migration has been applied.
 
 Database schema creation and migration application are handled by the database migration workflow.
+
+## Riot Match Persistence
+
+Mapped Riot matches are persisted through an Application-facing repository abstraction.
+
+The persistence flow is:
+
+```text
+Riot Match-V5
+    ↓
+Infrastructure Riot client
+    ↓
+Application Riot models
+    ↓
+RiotMatchDomainMapper
+    ↓
+Match aggregate
+    ↓
+IMatchRepository
+    ↓
+MatchRepository
+    ↓
+SkillIssueDbContext
+    ↓
+PostgreSQL
+```
+
+### Repository Abstraction
+
+The Application layer defines:
+
+```text
+src/SkillIssue.GG.Application/Matches/Interfaces/IMatchRepository.cs
+```
+
+The contract exposes:
+
+```csharp
+Task<bool> ExistsByRiotMatchIdAsync(
+    string riotMatchId,
+    CancellationToken cancellationToken = default);
+
+Task AddAsync(
+    Match match,
+    CancellationToken cancellationToken = default);
+```
+
+The Application layer does not depend on EF Core or `SkillIssueDbContext`.
+
+### Infrastructure Implementation
+
+The repository implementation is located at:
+
+```text
+src/SkillIssue.GG.Infrastructure/Persistence/Repositories/MatchRepository.cs
+```
+
+It uses the existing:
+
+```text
+SkillIssueDbContext
+```
+
+to persist the complete `Match` aggregate.
+
+`AddAsync` persists the aggregate and calls:
+
+```csharp
+SaveChangesAsync(...)
+```
+
+within the repository.
+
+### Match Aggregate Persistence
+
+The repository persists the supplied Domain `Match` without reconstructing it.
+
+This preserves:
+
+- Domain-generated Match ID
+- Riot match ID
+- Riot game ID
+- Match metadata
+- Match timestamps
+- Duration
+- Nullable completion fields
+
+Participants already attached through:
+
+```text
+Match.AddParticipant(...)
+```
+
+are persisted with the aggregate.
+
+### Participant Collections
+
+Participant item and rune IDs continue to use the existing PostgreSQL primitive collection mappings.
+
+```text
+ItemIds -> integer[]
+RuneIds -> integer[]
+```
+
+No join tables are introduced for these collections.
+
+### Duplicate Detection
+
+Duplicate checks use:
+
+```text
+Match.RiotMatchId
+```
+
+The repository exposes:
+
+```csharp
+ExistsByRiotMatchIdAsync(...)
+```
+
+which performs an existence query without loading the full aggregate.
+
+The database uniqueness constraint remains the final protection against duplicate Riot match IDs.
+
+Duplicate database violations are not silently swallowed.
+
+### Cancellation
+
+Repository operations accept:
+
+```text
+CancellationToken
+```
+
+and pass cancellation through to EF Core asynchronous operations.
+
+### Integration Testing
+
+Repository integration tests are located under:
+
+```text
+tests/SkillIssue.GG.Infrastructure.IntegrationTests/Persistence/Repositories/
+```
+
+The tests use the existing PostgreSQL Testcontainers fixture.
+
+Coverage includes:
+
+- Match aggregate persistence
+- Match metadata persistence
+- Nullable completion fields
+- Participant persistence
+- Multiple participants
+- Item ID arrays
+- Rune ID arrays
+- Empty item arrays
+- Empty rune arrays
+- Riot match existence checks
+- Duplicate Riot match protection
+- Cancellation behavior
+
+No real Riot API calls are made during persistence testing.
+
+### Verification
+
+Run:
+
+```powershell
+dotnet test tests/SkillIssue.GG.Infrastructure.IntegrationTests/SkillIssue.GG.Infrastructure.IntegrationTests.csproj
+dotnet build SkillIssue.GG.slnx
+dotnet test SkillIssue.GG.slnx
+```
+
+## Player Repository
+
+Player persistence is exposed to the Application layer through:
+
+```text
+src/SkillIssue.GG.Application/Players/Interfaces/IPlayerRepository.cs
+```
+
+The Infrastructure implementation is located at:
+
+```text
+src/SkillIssue.GG.Infrastructure/Persistence/Repositories/PlayerRepository.cs
+```
+
+The repository uses the existing:
+
+```text
+SkillIssueDbContext
+```
+
+and PostgreSQL persistence configuration.
+
+### Supported Operations
+
+The repository currently supports:
+
+```csharp
+Task<Player?> GetByPuuidAsync(
+    string puuid,
+    CancellationToken cancellationToken = default);
+
+Task AddAsync(
+    Player player,
+    CancellationToken cancellationToken = default);
+```
+
+### GetByPuuidAsync
+
+`GetByPuuidAsync` retrieves a Player using Riot's PUUID as the lookup key.
+
+Behavior:
+
+```text
+Matching Player exists
+    -> returns Player
+
+No matching Player exists
+    -> returns null
+```
+
+The query uses:
+
+```text
+AsNoTracking()
+```
+
+because the repository is performing a read-only lookup.
+
+Invalid PUUID values are rejected before database access:
+
+```text
+null
+empty
+whitespace
+```
+
+### AddAsync
+
+`AddAsync` adds the supplied Player to the DbContext and immediately persists it using:
+
+```text
+SaveChangesAsync
+```
+
+A null Player is rejected before database access.
+
+This follows the same narrow repository approach used by `MatchRepository`.
+
+### Uniqueness
+
+Player PUUID uniqueness is enforced by the existing database schema.
+
+Attempting to persist multiple Players with the same PUUID results in a database update failure.
+
+The repository does not silently ignore or overwrite duplicate Players.
+
+### Architecture
+
+The dependency direction remains:
+
+```text
+Application
+    ↓
+IPlayerRepository
+    ↓ implemented by
+Infrastructure
+    ↓
+PlayerRepository
+    ↓
+SkillIssueDbContext
+    ↓
+PostgreSQL
+```
+
+The Domain project remains persistence-agnostic and contains no EF Core dependencies.
+
+### Dependency Injection
+
+The repository is registered through the Infrastructure composition setup:
+
+```text
+IPlayerRepository
+    ->
+PlayerRepository
+```
+
+### Integration Testing
+
+Player repository behavior is verified using the existing PostgreSQL Testcontainers infrastructure.
+
+Tests cover:
+
+```text
+Player persistence
+PUUID lookup
+Unknown PUUID behavior
+Field preservation
+Duplicate PUUID constraints
+Invalid PUUID validation
+Null Player validation
+Cancellation
+```
+
+These are database integration tests and require Docker to be available.
+
+## Player Match History Queries
+
+The Application layer provides a read-only query for retrieving imported Matches belonging to a Player.
+
+The read path is:
+
+```text
+Player PUUID
+    ↓
+IPlayerMatchHistoryService
+    ↓
+PlayerMatchHistoryService
+    ↓
+IMatchRepository
+    ↓
+MatchRepository
+    ↓
+PostgreSQL
+```
+
+This workflow operates entirely on locally persisted data and does not call the Riot API.
+
+### Application Contract
+
+The query is exposed through:
+
+```text
+src/SkillIssue.GG.Application/Matches/Interfaces/IPlayerMatchHistoryService.cs
+```
+
+with:
+
+```csharp
+Task<IReadOnlyList<Match>> GetAsync(
+    string puuid,
+    int skip = 0,
+    int take = 20,
+    CancellationToken cancellationToken = default);
+```
+
+The Application service validates input and delegates persistence access to `IMatchRepository`.
+
+Validation rules are:
+
+```text
+puuid must not be null, empty, or whitespace
+skip >= 0
+1 <= take <= 100
+```
+
+Invalid input is rejected before the repository is accessed.
+
+### Persistence Query
+
+`IMatchRepository` exposes:
+
+```csharp
+Task<IReadOnlyList<Match>> GetByPlayerPuuidAsync(
+    string puuid,
+    int skip,
+    int take,
+    CancellationToken cancellationToken = default);
+```
+
+The Infrastructure implementation queries Matches where at least one persisted participant satisfies:
+
+```text
+MatchParticipant.PlayerPuuid == requested PUUID
+```
+
+The filtering is performed by PostgreSQL through EF Core rather than loading all Matches into application memory.
+
+### Ordering
+
+Player Match history is returned newest first using:
+
+```text
+StartedAt descending
+```
+
+Ordering occurs before pagination.
+
+Conceptually:
+
+```text
+Matching Matches
+    ↓
+OrderByDescending(StartedAt)
+    ↓
+Skip(skip)
+    ↓
+Take(take)
+```
+
+### Pagination
+
+The query uses offset pagination.
+
+Defaults at the Application boundary are:
+
+```text
+skip = 0
+take = 20
+```
+
+The maximum page size is:
+
+```text
+take = 100
+```
+
+`Skip` and `Take` are applied as part of the persistence query so the entire Player Match history is not loaded into memory.
+
+### Aggregate Loading
+
+Returned `Match` aggregates include their `Participants`.
+
+This allows callers to inspect the requested Player's persisted `MatchParticipant` data, including Match statistics already stored in the Domain model.
+
+The Player PUUID filter determines which Matches are returned; it does not restrict the loaded participant collection to only the requested Player.
+
+For example:
+
+```text
+Match
+├── requested Player participant
+├── teammate participant
+├── teammate participant
+├── opponent participant
+└── ...
+```
+
+The complete persisted participant collection for each returned Match is available to the caller.
+
+### Read-Only Behavior
+
+The persistence query uses:
+
+```csharp
+AsNoTracking()
+```
+
+because Player Match-history retrieval is a read-only workflow.
+
+No Match or MatchParticipant entities are modified by this query.
+
+### Cancellation
+
+The supplied `CancellationToken` is propagated through:
+
+```text
+IPlayerMatchHistoryService
+    ↓
+IMatchRepository
+    ↓
+EF Core asynchronous query
+```
+
+and is supplied to the asynchronous database operation.
+
+### External Service Boundary
+
+Player Match-history retrieval does not depend on:
+
+```text
+Riot API
+RiotApiClient
+HttpClient
+IRiotMatchHistoryService
+IRiotMatchService
+IRiotMatchImportService
+```
+
+Only Matches that have already been imported into PostgreSQL are returned.
+
+If a Player has no locally persisted Matches, the query returns an empty collection. It does not attempt to retrieve missing history from Riot.
+
+### Testing
+
+Pure Application tests verify:
+
+- PUUID forwarding
+- pagination forwarding
+- repository result forwarding
+- empty results
+- validation before repository access
+- repository failure propagation
+- cancellation token propagation
+
+PostgreSQL integration tests verify:
+
+- filtering by participant PUUID
+- exclusion of unrelated Matches
+- newest-first ordering
+- pagination after ordering
+- participant aggregate loading
+- empty histories
+- cancellation behavior
