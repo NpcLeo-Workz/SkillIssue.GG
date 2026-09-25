@@ -2354,3 +2354,118 @@ HTTP pipeline tests use `WebApplicationFactory` to verify that invalid request m
 without invoking the synchronization service.
 
 The Web tests do not call the real Riot API and do not require a Riot API key.
+
+## Player Match History API
+
+Persisted Match history for a Player can be retrieved through:
+
+```http
+GET /api/players/{puuid}/matches
+```
+
+This endpoint reads only from locally persisted Match data. It does not call the Riot API, synchronize the Player, or import missing Matches.
+
+### Route parameters
+
+| Parameter | Description |
+| --- | --- |
+| `puuid` | Riot PUUID of the Player whose persisted Match history should be returned. |
+
+The PUUID must not be empty or whitespace.
+
+### Pagination
+
+The endpoint supports optional `skip` and `take` query parameters:
+
+```http
+GET /api/players/{puuid}/matches?skip=20&take=20
+```
+
+Defaults:
+
+- `skip = 0`
+- `take = 20`
+
+Validation:
+
+- `skip >= 0`
+- `1 <= take <= 100`
+
+Invalid pagination input returns `400 Bad Request`.
+
+Ordering and pagination are performed by the existing Application/persistence workflow. Matches are returned newest first by `StartedAt`.
+
+### Response
+
+A successful request returns `200 OK` with a JSON collection of persisted Matches.
+
+Each Match contains:
+
+- Riot Match ID
+- game version
+- game mode
+- game type
+- map ID
+- queue ID
+- platform ID
+- game creation time
+- start time
+- end time
+- duration
+- end-of-game result
+- participants
+
+Each participant contains the persisted statistics currently represented by the Domain model:
+
+- Player PUUID
+- participant ID
+- team ID
+- champion ID
+- team position
+- kills, deaths, and assists
+- gold earned and spent
+- total and neutral minions killed
+- vision score
+- wards placed and killed
+- total damage dealt to champions
+- total damage taken
+- time played
+- win result
+- item IDs
+- rune IDs
+
+The response does not expose a general `TotalDamageDealt` field because that value is not represented by the current `MatchParticipant` Domain entity.
+
+### Empty history
+
+A valid PUUID with no locally persisted Matches returns:
+
+```http
+200 OK
+```
+
+with:
+
+```json
+[]
+```
+
+An empty history does not trigger Riot synchronization or an API fallback.
+
+### Read path
+
+```text
+HTTP Client
+    ↓
+PlayerMatchesController
+    ↓
+IPlayerMatchHistoryService
+    ↓
+PlayerMatchHistoryService
+    ↓
+IMatchRepository
+    ↓
+MatchRepository
+    ↓
+PostgreSQL
+```
