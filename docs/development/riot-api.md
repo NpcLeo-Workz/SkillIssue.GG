@@ -2469,3 +2469,86 @@ MatchRepository
     ↓
 PostgreSQL
 ```
+
+## Persisted Player Profile API
+
+A locally persisted Player can be retrieved by Riot PUUID through:
+
+```http
+GET /api/players/{puuid}
+```
+
+This endpoint reads only from locally persisted Player data.
+
+It does not call the Riot API, synchronize the Player, create missing Players, or update an existing Player profile.
+
+### Route parameters
+
+| Parameter | Description |
+| --- | --- |
+| `puuid` | Riot PUUID of the persisted Player to retrieve. |
+
+The PUUID must not be empty or whitespace.
+
+### Response
+
+A successful request returns:
+
+```http
+200 OK
+```
+
+The response contains the Player fields currently represented by the Domain model:
+
+```json
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "puuid": "example-puuid",
+  "name": "Example Player",
+  "region": "EUW"
+}
+```
+
+The API uses a Web-specific response model and does not expose the Domain `Player` entity directly.
+
+### Player not found
+
+If the PUUID is valid but no locally persisted Player exists, the endpoint returns:
+
+```http
+404 Not Found
+```
+
+A missing Player does not trigger Riot account lookup, synchronization, or automatic creation.
+
+### Invalid PUUID
+
+An invalid PUUID returns:
+
+```http
+400 Bad Request
+```
+
+A PUUID is invalid when it is empty or whitespace.
+
+### Persisted-data-only behavior
+
+The read path is:
+
+```text
+HTTP Client
+    ↓
+PlayersController
+    ↓
+IPlayerQueryService
+    ↓
+PlayerQueryService
+    ↓
+IPlayerRepository
+    ↓
+PlayerRepository
+    ↓
+PostgreSQL
+```
+
+There is no Riot API dependency in this read path.

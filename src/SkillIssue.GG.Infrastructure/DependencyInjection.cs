@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using SkillIssue.GG.Application.Matches.Interfaces;
 using SkillIssue.GG.Application.Matches.Services;
 using SkillIssue.GG.Application.Players.Interfaces;
+using SkillIssue.GG.Application.Players.Services;
 using SkillIssue.GG.Application.Riot.Interfaces;
 using SkillIssue.GG.Application.Riot.Services;
 using SkillIssue.GG.Infrastructure.Persistence;
@@ -58,7 +59,6 @@ public static class DependencyInjection
         services.AddScoped<IRiotMatchHistoryService, RiotMatchHistoryService>();
         services.AddScoped<IRiotMatchService, RiotMatchService>();
 
-
         // Add application services
         services.AddScoped<IRiotMatchImportService, RiotMatchImportService>();
         services.AddScoped<IRiotMatchHistorySyncService, RiotMatchHistorySyncService>();
@@ -67,6 +67,7 @@ public static class DependencyInjection
 
         // Add application repository services
         services.AddScoped<IPlayerMatchHistoryService, PlayerMatchHistoryService>();
+        services.AddScoped<IPlayerQueryService, PlayerQueryService>();
 
         // Add repositories
         services.AddScoped<IMatchRepository, MatchRepository>();
