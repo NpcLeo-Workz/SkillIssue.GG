@@ -192,5 +192,12 @@ public sealed class PlayerMatchHistoryServiceTests
         {
             throw new NotSupportedException();
         }
+
+        public Task<Match?> GetByRiotMatchIdAsync(
+            string riotMatchId,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
     }
 }

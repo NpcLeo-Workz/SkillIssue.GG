@@ -2552,3 +2552,83 @@ PostgreSQL
 ```
 
 There is no Riot API dependency in this read path.
+
+## Persisted match details
+
+A single imported match can be retrieved from local persistence by its Riot match ID.
+
+### Request
+
+```http
+GET /api/matches/{riotMatchId}
+```
+
+Example:
+
+```http
+GET /api/matches/EUW1_1234567890
+```
+
+### Response
+
+A successful request returns `200 OK` with the persisted match and its participants.
+
+```json
+{
+  "riotMatchId": "EUW1_1234567890",
+  "gameVersion": "16.15.1.1234",
+  "gameMode": "CLASSIC",
+  "gameType": "MATCHED_GAME",
+  "mapId": 11,
+  "queueId": 420,
+  "platformId": "EUW1",
+  "gameCreatedAt": "2026-09-27T18:59:00+00:00",
+  "startedAt": "2026-09-27T19:00:00+00:00",
+  "endedAt": "2026-09-27T19:30:00+00:00",
+  "duration": "00:30:00",
+  "endOfGameResult": "GameComplete",
+  "participants": [
+    {
+      "playerPuuid": "example-puuid",
+      "participantId": 1,
+      "teamId": 100,
+      "championId": 266,
+      "teamPosition": "TOP",
+      "kills": 10,
+      "deaths": 2,
+      "assists": 5,
+      "goldEarned": 12000,
+      "goldSpent": 11000,
+      "totalMinionsKilled": 180,
+      "neutralMinionsKilled": 10,
+      "visionScore": 25,
+      "wardsPlaced": 8,
+      "wardsKilled": 3,
+      "totalDamageDealtToChampions": 25000,
+      "totalDamageTaken": 18000,
+      "timePlayed": "00:30:00",
+      "won": true,
+      "itemIds": [
+        1001,
+        2003
+      ],
+      "runeIds": [
+        8005,
+        9111
+      ]
+    }
+  ]
+}
+```
+
+### Status codes
+
+- `200 OK` — the persisted match was found.
+- `400 Bad Request` — the Riot match ID is invalid.
+- `404 Not Found` — no persisted match exists with the supplied Riot match ID.
+
+### Persistence behavior
+
+This endpoint reads only from the local SkillIssue.GG database.
+
+It does not call the Riot API, import missing matches, or trigger player or match synchronization. A match must already have been imported before it can be returned by this endpoint.

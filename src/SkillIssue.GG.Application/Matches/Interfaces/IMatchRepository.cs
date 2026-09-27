@@ -16,4 +16,8 @@ public interface IMatchRepository
         int skip,
         int take,
         CancellationToken cancellationToken = default);
+
+    Task<Match?> GetByRiotMatchIdAsync(
+    string riotMatchId,
+    CancellationToken cancellationToken = default);
 }

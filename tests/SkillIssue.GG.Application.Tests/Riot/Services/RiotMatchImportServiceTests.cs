@@ -288,5 +288,12 @@ public sealed class RiotMatchImportServiceTests
         {
             return Task.FromResult<IReadOnlyList<Match>>([]);
         }
+
+        public Task<Match?> GetByRiotMatchIdAsync(
+            string riotMatchId,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
     }
 }

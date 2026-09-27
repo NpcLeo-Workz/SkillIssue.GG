@@ -51,4 +51,16 @@ public sealed class MatchRepository(SkillIssueDbContext dbContext) : IMatchRepos
             .Include(match => match.Participants)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<Match?> GetByRiotMatchIdAsync(
+    string riotMatchId,
+    CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.Matches
+            .AsNoTracking()
+            .Include(match => match.Participants)
+            .SingleOrDefaultAsync(
+                match => match.RiotMatchId == riotMatchId,
+                cancellationToken);
+    }
 }
