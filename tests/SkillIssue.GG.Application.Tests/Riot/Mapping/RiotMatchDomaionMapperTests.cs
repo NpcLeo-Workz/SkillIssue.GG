@@ -280,6 +280,69 @@ public sealed class RiotMatchDomainMapperTests
             () => RiotMatchDomainMapper.Map(source));
     }
 
+    [Fact]
+    public void Map_RejectsGameCreationAfterStart()
+    {
+        var normal = CreateMatchDetails();
+
+        var source = normal with
+        {
+            GameCreatedAt = normal.StartedAt.AddSeconds(1)
+        };
+
+        Assert.Throws<ArgumentException>(
+            () => RiotMatchDomainMapper.Map(source));
+    }
+
+    [Fact]
+    public void Map_RejectsGameEndBeforeStart()
+    {
+        var normal = CreateMatchDetails();
+
+        var source = normal with
+        {
+            EndedAt = normal.StartedAt.AddSeconds(-1)
+        };
+
+        Assert.Throws<ArgumentException>(
+            () => RiotMatchDomainMapper.Map(source));
+    }
+
+    [Fact]
+    public void Map_PreservesProvidedDuration()
+    {
+        var normal = CreateMatchDetails();
+
+        var source = normal with
+        {
+            Duration = TimeSpan.FromSeconds(1837)
+        };
+
+        var match = RiotMatchDomainMapper.Map(source);
+
+        Assert.Equal(
+            TimeSpan.FromSeconds(1837),
+            match.Duration);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("   ")]
+    public void Map_RejectsInvalidRiotMatchId(
+    string riotMatchId)
+    {
+        var normal = CreateMatchDetails();
+
+        var source = normal with
+        {
+            RiotMatchId = riotMatchId
+        };
+
+        Assert.Throws<ArgumentException>(
+            () => RiotMatchDomainMapper.Map(source));
+    }
+
     private static RiotMatchDetails CreateMatchDetails(
         IReadOnlyList<RiotMatchParticipant>? participants = null)
     {

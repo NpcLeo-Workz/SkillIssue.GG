@@ -269,3 +269,47 @@ Coverage includes:
 - duplicate rune IDs
 - empty item and rune collections
 - Domain validation propagation
+
+### Match identity
+
+Riot match identity is preserved during processing.
+
+`RiotMatchId` is passed directly into the `Match` Domain entity. Missing, empty, or whitespace-only match IDs are rejected by the Domain.
+
+Data Processing does not generate replacement identifiers or silently correct invalid Riot match identity values.
+
+### Match chronology
+
+Match timestamps are preserved from the Riot representation and passed into the Domain without being silently corrected.
+
+The Domain enforces the following chronology:
+
+```text
+GameCreatedAt <= StartedAt
+StartedAt <= EndedAt     (when EndedAt is present)
+```
+
+Therefore:
+
+- game creation after game start is invalid
+- game end before game start is invalid
+- `EndedAt` may be absent
+- invalid chronology causes transformation to fail
+
+Data Processing does not reorder, replace, or manufacture timestamps to make malformed external data valid.
+
+### Match duration
+
+`RiotMatchDetails.Duration` is preserved when constructing the Domain `Match`.
+
+Data Processing does not recalculate duration from `StartedAt` and `EndedAt`.
+
+This is intentional because the Riot-provided duration is part of the external match representation and `EndedAt` may also be absent.
+
+Valid duration values therefore follow:
+
+```text
+RiotMatchDetails.Duration
+        ↓
+Match.Duration
+```
