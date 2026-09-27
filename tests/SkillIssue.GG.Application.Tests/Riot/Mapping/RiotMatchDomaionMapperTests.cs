@@ -202,6 +202,84 @@ public sealed class RiotMatchDomainMapperTests
             () => RiotMatchDomainMapper.Map(source));
     }
 
+    [Fact]
+    public void Map_IgnoresEmptyItemSlots()
+    {
+        var participant = CreateParticipant(
+            itemIds: [3071, 0, 3047, 0, 6333]);
+
+        var source = CreateMatchDetails(
+            participants: [participant]);
+
+        var match = RiotMatchDomainMapper.Map(source);
+
+        var mappedParticipant = Assert.Single(match.Participants);
+
+        Assert.Equal(
+            [3071, 3047, 6333],
+            mappedParticipant.ItemIds);
+    }
+
+    [Fact]
+    public void Map_PreservesDuplicateItemIds()
+    {
+        var participant = CreateParticipant(
+            itemIds: [3071, 3071, 3047]);
+
+        var source = CreateMatchDetails(
+            participants: [participant]);
+
+        var match = RiotMatchDomainMapper.Map(source);
+
+        var mappedParticipant = Assert.Single(match.Participants);
+
+        Assert.Equal(
+            [3071, 3071, 3047],
+            mappedParticipant.ItemIds);
+    }
+
+    [Fact]
+    public void Map_RejectsNegativeItemIds()
+    {
+        var participant = CreateParticipant(
+            itemIds: [3071, -1]);
+
+        var source = CreateMatchDetails(
+            participants: [participant]);
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => RiotMatchDomainMapper.Map(source));
+    }
+
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void Map_RejectsInvalidRuneIds(int invalidRuneId)
+    {
+        var participant = CreateParticipant(
+            runeIds: [8005, invalidRuneId]);
+
+        var source = CreateMatchDetails(
+            participants: [participant]);
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => RiotMatchDomainMapper.Map(source));
+    }
+
+    [Fact]
+    public void Map_RejectsDuplicateRuneIds()
+    {
+        var participant = CreateParticipant(
+            runeIds: [8005, 9111, 8005]);
+
+        var source = CreateMatchDetails(
+            participants: [participant]);
+
+        Assert.Throws<InvalidOperationException>(
+            () => RiotMatchDomainMapper.Map(source));
+    }
+
     private static RiotMatchDetails CreateMatchDetails(
         IReadOnlyList<RiotMatchParticipant>? participants = null)
     {
