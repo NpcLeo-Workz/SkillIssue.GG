@@ -1,4 +1,4 @@
-﻿namespace SkillIssue.GG.Domain.Tests;
+﻿namespace SkillIssue.GG.Web.Tests;
 
 public class UnitTest1
 {
