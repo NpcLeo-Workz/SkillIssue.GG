@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SkillIssue.GG.Application.Riot.Models;
 using SkillIssue.GG.Domain.Entities;
 using SkillIssue.GG.Infrastructure.Persistence.Repositories;
 
@@ -467,6 +468,186 @@ public sealed class MatchRepositoryTests(PostgreSqlFixture fixture) : IClassFixt
                 "test-puuid",
                 skip: 0,
                 take: 20,
+                cancellationTokenSource.Token));
+    }
+
+    [Fact]
+    public async Task GetByRiotMatchIdAsync_WithMatchingId_ReturnsMatch()
+    {
+        var dbContext = _fixture.CreateDbContext();
+        var match = CreateMatchWithRiotMatchId(
+            riotMatchId: $"EUW1_{Guid.NewGuid():N}");
+
+        dbContext.Matches.Add(match);
+        await dbContext.SaveChangesAsync();
+
+        var repository = new MatchRepository(dbContext);
+
+        var result = await repository.GetByRiotMatchIdAsync(
+            match.RiotMatchId);
+
+        Assert.NotNull(result);
+        Assert.Equal(match.Id, result.Id);
+        Assert.Equal(match.RiotMatchId, result.RiotMatchId);
+    }
+
+    [Fact]
+    public async Task GetByRiotMatchIdAsync_DoesNotReturnUnrelatedMatch()
+    {
+        var dbContext = _fixture.CreateDbContext();
+        var persistedMatch = CreateMatchWithRiotMatchId(
+            riotMatchId: $"EUW1_{Guid.NewGuid():N}");
+
+        dbContext.Matches.Add(persistedMatch);
+        await dbContext.SaveChangesAsync();
+
+        var repository = new MatchRepository(dbContext);
+
+        var result = await repository.GetByRiotMatchIdAsync(
+            $"EUW1_{Guid.NewGuid():N}");
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetByRiotMatchIdAsync_WhenMatchDoesNotExist_ReturnsNull()
+    {
+        var dbContext = _fixture.CreateDbContext();
+
+        var repository = new MatchRepository(dbContext);
+
+        var result = await repository.GetByRiotMatchIdAsync(
+            $"EUW1_{Guid.NewGuid():N}");
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetByRiotMatchIdAsync_LoadsParticipants()
+    {
+        var dbContext = _fixture.CreateDbContext();
+
+        var match = CreateMatchWithRiotMatchId(
+            riotMatchId: $"EUW1_{Guid.NewGuid():N}");
+
+        var participant = new MatchParticipant(
+           matchId: match.Id,
+           playerPuuid: $"puuid-{Guid.NewGuid():N}",
+           participantId: 1,
+           teamId: 100,
+           championId: 266,
+           teamPosition: "TOP",
+           kills: 10,
+           deaths: 2,
+           assists: 5,
+           goldEarned: 12000,
+           goldSpent: 11000,
+           totalMinionsKilled: 180,
+           neutralMinionsKilled: 10,
+           visionScore: 25,
+           wardsPlaced: 8,
+           wardsKilled: 3,
+           totalDamageDealtToChampions: 25000,
+           totalDamageTaken: 18000,
+           timePlayed: TimeSpan.FromMinutes(30),
+           won: true);
+
+        participant.AddItem(1001);
+        participant.AddItem(2003);
+
+        participant.AddRune(8005);
+        participant.AddRune(9111);
+
+        match.AddParticipant(participant);
+
+        dbContext.Matches.Add(match);
+        await dbContext.SaveChangesAsync();
+
+        // Don't let the already-tracked aggregate prove the query works.
+        dbContext.ChangeTracker.Clear();
+
+        var repository = new MatchRepository(dbContext);
+
+        var result = await repository.GetByRiotMatchIdAsync(
+            match.RiotMatchId);
+
+        Assert.NotNull(result);
+
+        var returnedParticipant = Assert.Single(result.Participants);
+
+        Assert.Equal(participant.PlayerPuuid, returnedParticipant.PlayerPuuid);
+
+        Assert.Equal(
+            [1001, 2003],
+            returnedParticipant.ItemIds);
+
+        Assert.Equal(
+            [8005, 9111],
+            returnedParticipant.RuneIds);
+    }
+
+    [Fact]
+    public async Task GetByRiotMatchIdAsync_DoesNotTrackReturnedAggregate()
+    {
+        var dbContext = _fixture.CreateDbContext();
+        var match = CreateMatchWithRiotMatchId(
+            riotMatchId: $"EUW1_{Guid.NewGuid():N}");
+
+        var participant = new MatchParticipant(
+            matchId: match.Id,
+            playerPuuid: $"puuid-{Guid.NewGuid():N}",
+            participantId: 1,
+            teamId: 100,
+            championId: 266,
+            teamPosition: "TOP",
+            kills: 10,
+            deaths: 2,
+            assists: 5,
+            goldEarned: 12000,
+            goldSpent: 11000,
+            totalMinionsKilled: 180,
+            neutralMinionsKilled: 10,
+            visionScore: 25,
+            wardsPlaced: 8,
+            wardsKilled: 3,
+            totalDamageDealtToChampions: 25000,
+            totalDamageTaken: 18000,
+            timePlayed: TimeSpan.FromMinutes(30),
+            won: true);
+
+        match.AddParticipant(participant);
+
+        dbContext.Matches.Add(match);
+        await dbContext.SaveChangesAsync();
+
+        await using var queryDbContext = _fixture.CreateDbContext();
+
+        var repository = new MatchRepository(queryDbContext);
+
+        var result = await repository.GetByRiotMatchIdAsync(
+            match.RiotMatchId);
+
+        Assert.NotNull(result);
+        Assert.NotEmpty(result.Participants);
+
+        Assert.Empty(queryDbContext.ChangeTracker.Entries<Match>());
+        Assert.Empty(queryDbContext.ChangeTracker.Entries<MatchParticipant>());
+    }
+
+    [Fact]
+    public async Task GetByRiotMatchIdAsync_WithCancelledToken_ThrowsOperationCanceledException()
+    {
+        var dbContext = _fixture.CreateDbContext();
+        var repository = new MatchRepository(dbContext);
+
+        using var cancellationTokenSource =
+            new CancellationTokenSource();
+
+        cancellationTokenSource.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => repository.GetByRiotMatchIdAsync(
+                $"EUW1_{Guid.NewGuid():N}",
                 cancellationTokenSource.Token));
     }
 

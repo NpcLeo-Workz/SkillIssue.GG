@@ -68,6 +68,7 @@ public static class DependencyInjection
         // Add application repository services
         services.AddScoped<IPlayerMatchHistoryService, PlayerMatchHistoryService>();
         services.AddScoped<IPlayerQueryService, PlayerQueryService>();
+        services.AddScoped<IMatchQueryService, MatchQueryService>();
 
         // Add repositories
         services.AddScoped<IMatchRepository, MatchRepository>();
