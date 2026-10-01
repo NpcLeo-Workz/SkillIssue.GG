@@ -414,6 +414,29 @@ public sealed class RiotMatchDomainMapperTests
             mappedParticipant.TotalDamageTaken);
     }
 
+    [Fact]
+    public void Map_IgnoresMultipleEmptyItemSlotsWithoutAffectingRunes()
+    {
+        var participant = CreateParticipant(
+            itemIds: [0, 3071, 0, 0, 3047, 0],
+            runeIds: [8005, 9111]);
+
+        var source = CreateMatchDetails(
+            participants: [participant]);
+
+        var match = RiotMatchDomainMapper.Map(source);
+
+        var mappedParticipant = Assert.Single(match.Participants);
+
+        Assert.Equal(
+            [3071, 3047],
+            mappedParticipant.ItemIds);
+
+        Assert.Equal(
+            [8005, 9111],
+            mappedParticipant.RuneIds);
+    }
+
 
     private static RiotMatchDetails CreateMatchDetails(
         IReadOnlyList<RiotMatchParticipant>? participants = null)
