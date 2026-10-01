@@ -165,6 +165,20 @@ Riot item slots:
 Domain ItemIds:
 [3071, 3047, 6333]
 ```
+Riot participant item IDs are processed through `MatchParticipant.AddItem`.
+
+The processing rules are:
+
+- positive Riot item IDs are preserved without conversion
+- item ID `0` represents an empty inventory slot and is ignored
+- multiple empty slots are allowed and ignored
+- negative item IDs are invalid
+- duplicate non-zero item IDs are allowed
+- the ordering of non-zero item IDs is preserved
+- an empty item collection is valid
+- item processing does not affect rune processing
+
+Item IDs remain Riot identifiers. Data Processing does not resolve them to `Item` entities or perform item metadata lookup.
 
 ## Rune processing
 
