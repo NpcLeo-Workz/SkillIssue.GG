@@ -313,3 +313,101 @@ RiotMatchDetails.Duration
         ↓
 Match.Duration
 ```
+
+The full Riot game version is preserved exactly during Riot-to-Domain processing. Data Processing does not truncate the version to its major/minor components.
+
+For example:
+
+```text
+Riot GameVersion: 16.15.123.4567
+Domain GameVersion: 16.15.123.4567
+Patch comparison: 16.15
+```
+
+Patch comparison is a Domain concern and does not modify the stored match version.
+
+### Participant identity and ownership
+
+Riot participant identity is preserved when constructing a Domain `MatchParticipant`.
+
+The following values are mapped directly:
+
+- `Puuid` → `PlayerPuuid`
+- `ParticipantId` → `ParticipantId`
+- `TeamId` → `TeamId`
+
+Each participant receives the `Id` of the newly constructed Domain `Match`:
+
+```text
+Match.Id
+   ↓
+MatchParticipant.MatchId
+```
+
+Mapped participants are added through `Match.AddParticipant`.
+
+This preserves `Match` aggregate ownership and ensures aggregate-level validation, including duplicate participant ID detection, is not bypassed.
+
+Data Processing does not generate replacement participant identifiers or silently correct invalid participant identity data.
+
+### Champion and position data
+
+`ChampionId` is preserved as the Riot champion identifier.
+
+Riot `ChampionName` is intentionally not copied into `MatchParticipant`. Champion metadata is represented separately by the `Champion` Domain entity.
+
+`TeamPosition` is preserved according to the Riot representation.
+
+Data Processing does not perform lane inference, role classification, or champion-statistics calculations.
+
+### Participant statistics source data
+
+Data Processing preserves the raw participant values required by later statistical analysis.
+
+This includes:
+
+- kills, deaths, and assists
+- gold earned and gold spent
+- total minions killed and neutral minions killed
+- vision score
+- wards placed and wards killed
+- total damage dealt to champions
+- total damage taken
+- time played
+- win/loss result
+
+These values are stored as Domain data. Data Processing does not calculate derived statistics such as KDA, CS, CS/min, gold/min, or win rate.
+
+Derived calculations belong to the Statistics Engine.
+
+### Total damage processing
+
+The Riot Application model contains both:
+
+```text
+TotalDamageDealt
+TotalDamageDealtToChampions
+```
+
+`MatchParticipant` currently stores `TotalDamageDealtToChampions` but does not contain a `TotalDamageDealt` property.
+
+Therefore, `TotalDamageDealt` is intentionally not mapped during Riot-to-Domain processing.
+
+Changing Riot `TotalDamageDealt` must not affect the Domain participant's `TotalDamageDealtToChampions` or `TotalDamageTaken` values.
+
+### Participant validation
+
+Participant validation remains a Domain responsibility.
+
+`RiotMatchDomainMapper` constructs `MatchParticipant` instances using Riot values and adds them through the `Match` aggregate.
+
+If participant data violates an existing Domain invariant, the validation exception is allowed to propagate.
+
+Data Processing does not:
+
+- clamp invalid numeric values
+- manufacture replacement PUUIDs
+- replace participant identifiers
+- bypass `Match.AddParticipant`
+- suppress Domain validation failures
+
