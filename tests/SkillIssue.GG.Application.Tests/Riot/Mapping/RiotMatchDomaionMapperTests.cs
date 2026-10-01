@@ -343,6 +343,78 @@ public sealed class RiotMatchDomainMapperTests
             () => RiotMatchDomainMapper.Map(source));
     }
 
+    [Fact]
+    public void Map_RejectsDuplicateParticipantIds()
+    {
+        var first = CreateParticipant(
+            puuid: "puuid-one",
+            participantId: 1,
+            championId: 266);
+
+        var second = CreateParticipant(
+            puuid: "puuid-two",
+            participantId: 1,
+            championId: 103);
+
+        var source = CreateMatchDetails(
+            participants: [first, second]);
+
+        Assert.Throws<InvalidOperationException>(
+            () => RiotMatchDomainMapper.Map(source));
+    }
+
+    [Fact]
+    public void Map_AssignsParticipantsToMappedMatch()
+    {
+        var source = CreateMatchDetails();
+
+        var match = RiotMatchDomainMapper.Map(source);
+
+        var participant = Assert.Single(match.Participants);
+
+        Assert.Equal(match.Id, participant.MatchId);
+    }
+
+    [Fact]
+    public void Map_DoesNotDependOnChampionName()
+    {
+        var participant = CreateParticipant(
+            championId: 266,
+            championName: "");
+
+        var source = CreateMatchDetails(
+            participants: [participant]);
+
+        var match = RiotMatchDomainMapper.Map(source);
+
+        var mappedParticipant = Assert.Single(match.Participants);
+
+        Assert.Equal(266, mappedParticipant.ChampionId);
+    }
+
+    [Fact]
+    public void Map_DoesNotDependOnTotalDamageDealt()
+    {
+        var participant = CreateParticipant(
+            totalDamageDealt: 999999);
+
+        var source = CreateMatchDetails(
+            participants: [participant]);
+
+        var match = RiotMatchDomainMapper.Map(source);
+
+        var mappedParticipant = Assert.Single(match.Participants);
+
+        Assert.Equal(
+            18000,
+            mappedParticipant.TotalDamageDealtToChampions);
+
+        Assert.Equal(
+            22000,
+            mappedParticipant.TotalDamageTaken);
+    }
+
+
     private static RiotMatchDetails CreateMatchDetails(
         IReadOnlyList<RiotMatchParticipant>? participants = null)
     {
@@ -378,11 +450,13 @@ public sealed class RiotMatchDomainMapperTests
     }
 
     private static RiotMatchParticipant CreateParticipant(
-        string puuid = "test-puuid",
-        int participantId = 1,
-        int championId = 266,
-        IReadOnlyList<int>? itemIds = null,
-        IReadOnlyList<int>? runeIds = null)
+    string puuid = "test-puuid",
+    int participantId = 1,
+    int championId = 266,
+    string championName = "Aatrox",
+    int totalDamageDealt = 25000,
+    IReadOnlyList<int>? itemIds = null,
+    IReadOnlyList<int>? runeIds = null)
     {
         itemIds ??= [3071, 3047, 6333, 3364];
         runeIds ??= [8005, 9111, 9104, 8014];
@@ -392,7 +466,7 @@ public sealed class RiotMatchDomainMapperTests
             ParticipantId: participantId,
             TeamId: 100,
             ChampionId: championId,
-            ChampionName: "Aatrox",
+            ChampionName: championName,
             TeamPosition: "TOP",
             Kills: 10,
             Deaths: 2,
@@ -404,7 +478,7 @@ public sealed class RiotMatchDomainMapperTests
             VisionScore: 24,
             WardsPlaced: 9,
             WardsKilled: 2,
-            TotalDamageDealt: 25000,
+            TotalDamageDealt: totalDamageDealt,
             TotalDamageDealtToChampions: 18000,
             TotalDamageTaken: 22000,
             TimePlayed: TimeSpan.FromSeconds(1800),
