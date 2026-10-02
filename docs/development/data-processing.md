@@ -425,3 +425,32 @@ Data Processing does not:
 - bypass `Match.AddParticipant`
 - suppress Domain validation failures
 
+### External Riot data validation
+
+Riot Match API responses are validated before they are converted into Application match models.
+
+Data Processing distinguishes between representation normalization and silently repairing malformed external data.
+
+Representation-specific values may be normalized when they have a defined meaning. For example, Riot item ID `0` represents an empty inventory slot and is omitted from the participant's item IDs.
+
+Malformed external values are rejected rather than silently corrected.
+
+Participant item processing follows:
+
+- positive item IDs are preserved
+- item ID `0` represents an empty inventory slot and is omitted
+- negative item IDs are invalid and cause processing to fail
+
+Participant rune processing follows:
+
+- positive rune IDs are preserved
+- rune ID `0` is invalid
+- negative rune IDs are invalid
+- duplicate rune IDs are invalid
+- invalid or duplicate rune IDs are not filtered or deduplicated before validation
+
+This ensures malformed Riot data cannot be transformed into valid-looking Application or Domain data.
+
+The Riot API boundary also validates required match and participant identity data, including match metadata, Riot match ID, data version, participant collection, participant PUUID, participant ID, and champion ID.
+
+Domain validation remains authoritative for Domain invariants. Infrastructure validation exists to prevent malformed external representations from being silently normalized into different data.
