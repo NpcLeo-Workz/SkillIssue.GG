@@ -655,6 +655,106 @@ public sealed class RiotMatchServiceTests
                 cancellationTokenSource.Token));
     }
 
+    [Fact]
+    public async Task GetMatchAsync_ThrowsInvalidOperationException_WhenItemIdIsNegative()
+    {
+        var json = ValidMatchJson.Replace(
+            "\"item0\": 3071",
+            "\"item0\": -1");
+
+        var handler = new StubHttpMessageHandler(
+            HttpStatusCode.OK,
+            json);
+
+        using var httpClient = new HttpClient(handler);
+
+        var service = new RiotMatchService(
+            new RiotApiClient(httpClient),
+            CreateOptions());
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => service.GetMatchAsync("EUW1_1234567890"));
+
+        Assert.Equal(
+            "Riot Match API returned an invalid item ID.",
+            exception.Message);
+    }
+
+    [Fact]
+    public async Task GetMatchAsync_ThrowsInvalidOperationException_WhenRuneIdIsZero()
+    {
+        var json = ValidMatchJson.Replace(
+            "{ \"perk\": 8005 }",
+            "{ \"perk\": 0 }");
+
+        var handler = new StubHttpMessageHandler(
+            HttpStatusCode.OK,
+            json);
+
+        using var httpClient = new HttpClient(handler);
+
+        var service = new RiotMatchService(
+            new RiotApiClient(httpClient),
+            CreateOptions());
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => service.GetMatchAsync("EUW1_1234567890"));
+
+        Assert.Equal(
+            "Riot Match API returned an invalid rune ID.",
+            exception.Message);
+    }
+
+    [Fact]
+    public async Task GetMatchAsync_ThrowsInvalidOperationException_WhenRuneIdIsNegative()
+    {
+        var json = ValidMatchJson.Replace(
+            "{ \"perk\": 8005 }",
+            "{ \"perk\": -1 }");
+
+        var handler = new StubHttpMessageHandler(
+            HttpStatusCode.OK,
+            json);
+
+        using var httpClient = new HttpClient(handler);
+
+        var service = new RiotMatchService(
+            new RiotApiClient(httpClient),
+            CreateOptions());
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => service.GetMatchAsync("EUW1_1234567890"));
+
+        Assert.Equal(
+            "Riot Match API returned an invalid rune ID.",
+            exception.Message);
+    }
+
+    [Fact]
+    public async Task GetMatchAsync_ThrowsInvalidOperationException_WhenRuneIdsAreDuplicate()
+    {
+        var json = ValidMatchJson.Replace(
+            "{ \"perk\": 9111 }",
+            "{ \"perk\": 8005 }");
+
+        var handler = new StubHttpMessageHandler(
+            HttpStatusCode.OK,
+            json);
+
+        using var httpClient = new HttpClient(handler);
+
+        var service = new RiotMatchService(
+            new RiotApiClient(httpClient),
+            CreateOptions());
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => service.GetMatchAsync("EUW1_1234567890"));
+
+        Assert.Equal(
+            "Riot Match API returned duplicate rune IDs.",
+            exception.Message);
+    }
+
     private static IOptions<RiotApiOptions> CreateOptions()
     {
         return Options.Create(new RiotApiOptions
