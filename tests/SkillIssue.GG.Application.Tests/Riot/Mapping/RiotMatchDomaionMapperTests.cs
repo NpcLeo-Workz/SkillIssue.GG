@@ -202,6 +202,242 @@ public sealed class RiotMatchDomainMapperTests
             () => RiotMatchDomainMapper.Map(source));
     }
 
+    [Fact]
+    public void Map_IgnoresEmptyItemSlots()
+    {
+        var participant = CreateParticipant(
+            itemIds: [3071, 0, 3047, 0, 6333]);
+
+        var source = CreateMatchDetails(
+            participants: [participant]);
+
+        var match = RiotMatchDomainMapper.Map(source);
+
+        var mappedParticipant = Assert.Single(match.Participants);
+
+        Assert.Equal(
+            [3071, 3047, 6333],
+            mappedParticipant.ItemIds);
+    }
+
+    [Fact]
+    public void Map_PreservesDuplicateItemIds()
+    {
+        var participant = CreateParticipant(
+            itemIds: [3071, 3071, 3047]);
+
+        var source = CreateMatchDetails(
+            participants: [participant]);
+
+        var match = RiotMatchDomainMapper.Map(source);
+
+        var mappedParticipant = Assert.Single(match.Participants);
+
+        Assert.Equal(
+            [3071, 3071, 3047],
+            mappedParticipant.ItemIds);
+    }
+
+    [Fact]
+    public void Map_RejectsNegativeItemIds()
+    {
+        var participant = CreateParticipant(
+            itemIds: [3071, -1]);
+
+        var source = CreateMatchDetails(
+            participants: [participant]);
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => RiotMatchDomainMapper.Map(source));
+    }
+
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void Map_RejectsInvalidRuneIds(int invalidRuneId)
+    {
+        var participant = CreateParticipant(
+            runeIds: [8005, invalidRuneId]);
+
+        var source = CreateMatchDetails(
+            participants: [participant]);
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => RiotMatchDomainMapper.Map(source));
+    }
+
+    [Fact]
+    public void Map_RejectsDuplicateRuneIds()
+    {
+        var participant = CreateParticipant(
+            runeIds: [8005, 9111, 8005]);
+
+        var source = CreateMatchDetails(
+            participants: [participant]);
+
+        Assert.Throws<InvalidOperationException>(
+            () => RiotMatchDomainMapper.Map(source));
+    }
+
+    [Fact]
+    public void Map_RejectsGameCreationAfterStart()
+    {
+        var normal = CreateMatchDetails();
+
+        var source = normal with
+        {
+            GameCreatedAt = normal.StartedAt.AddSeconds(1)
+        };
+
+        Assert.Throws<ArgumentException>(
+            () => RiotMatchDomainMapper.Map(source));
+    }
+
+    [Fact]
+    public void Map_RejectsGameEndBeforeStart()
+    {
+        var normal = CreateMatchDetails();
+
+        var source = normal with
+        {
+            EndedAt = normal.StartedAt.AddSeconds(-1)
+        };
+
+        Assert.Throws<ArgumentException>(
+            () => RiotMatchDomainMapper.Map(source));
+    }
+
+    [Fact]
+    public void Map_PreservesProvidedDuration()
+    {
+        var normal = CreateMatchDetails();
+
+        var source = normal with
+        {
+            Duration = TimeSpan.FromSeconds(1837)
+        };
+
+        var match = RiotMatchDomainMapper.Map(source);
+
+        Assert.Equal(
+            TimeSpan.FromSeconds(1837),
+            match.Duration);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("   ")]
+    public void Map_RejectsInvalidRiotMatchId(
+    string riotMatchId)
+    {
+        var normal = CreateMatchDetails();
+
+        var source = normal with
+        {
+            RiotMatchId = riotMatchId
+        };
+
+        Assert.Throws<ArgumentException>(
+            () => RiotMatchDomainMapper.Map(source));
+    }
+
+    [Fact]
+    public void Map_RejectsDuplicateParticipantIds()
+    {
+        var first = CreateParticipant(
+            puuid: "puuid-one",
+            participantId: 1,
+            championId: 266);
+
+        var second = CreateParticipant(
+            puuid: "puuid-two",
+            participantId: 1,
+            championId: 103);
+
+        var source = CreateMatchDetails(
+            participants: [first, second]);
+
+        Assert.Throws<InvalidOperationException>(
+            () => RiotMatchDomainMapper.Map(source));
+    }
+
+    [Fact]
+    public void Map_AssignsParticipantsToMappedMatch()
+    {
+        var source = CreateMatchDetails();
+
+        var match = RiotMatchDomainMapper.Map(source);
+
+        var participant = Assert.Single(match.Participants);
+
+        Assert.Equal(match.Id, participant.MatchId);
+    }
+
+    [Fact]
+    public void Map_DoesNotDependOnChampionName()
+    {
+        var participant = CreateParticipant(
+            championId: 266,
+            championName: "");
+
+        var source = CreateMatchDetails(
+            participants: [participant]);
+
+        var match = RiotMatchDomainMapper.Map(source);
+
+        var mappedParticipant = Assert.Single(match.Participants);
+
+        Assert.Equal(266, mappedParticipant.ChampionId);
+    }
+
+    [Fact]
+    public void Map_DoesNotDependOnTotalDamageDealt()
+    {
+        var participant = CreateParticipant(
+            totalDamageDealt: 999999);
+
+        var source = CreateMatchDetails(
+            participants: [participant]);
+
+        var match = RiotMatchDomainMapper.Map(source);
+
+        var mappedParticipant = Assert.Single(match.Participants);
+
+        Assert.Equal(
+            18000,
+            mappedParticipant.TotalDamageDealtToChampions);
+
+        Assert.Equal(
+            22000,
+            mappedParticipant.TotalDamageTaken);
+    }
+
+    [Fact]
+    public void Map_IgnoresMultipleEmptyItemSlotsWithoutAffectingRunes()
+    {
+        var participant = CreateParticipant(
+            itemIds: [0, 3071, 0, 0, 3047, 0],
+            runeIds: [8005, 9111]);
+
+        var source = CreateMatchDetails(
+            participants: [participant]);
+
+        var match = RiotMatchDomainMapper.Map(source);
+
+        var mappedParticipant = Assert.Single(match.Participants);
+
+        Assert.Equal(
+            [3071, 3047],
+            mappedParticipant.ItemIds);
+
+        Assert.Equal(
+            [8005, 9111],
+            mappedParticipant.RuneIds);
+    }
+
+
     private static RiotMatchDetails CreateMatchDetails(
         IReadOnlyList<RiotMatchParticipant>? participants = null)
     {
@@ -237,11 +473,13 @@ public sealed class RiotMatchDomainMapperTests
     }
 
     private static RiotMatchParticipant CreateParticipant(
-        string puuid = "test-puuid",
-        int participantId = 1,
-        int championId = 266,
-        IReadOnlyList<int>? itemIds = null,
-        IReadOnlyList<int>? runeIds = null)
+    string puuid = "test-puuid",
+    int participantId = 1,
+    int championId = 266,
+    string championName = "Aatrox",
+    int totalDamageDealt = 25000,
+    IReadOnlyList<int>? itemIds = null,
+    IReadOnlyList<int>? runeIds = null)
     {
         itemIds ??= [3071, 3047, 6333, 3364];
         runeIds ??= [8005, 9111, 9104, 8014];
@@ -251,7 +489,7 @@ public sealed class RiotMatchDomainMapperTests
             ParticipantId: participantId,
             TeamId: 100,
             ChampionId: championId,
-            ChampionName: "Aatrox",
+            ChampionName: championName,
             TeamPosition: "TOP",
             Kills: 10,
             Deaths: 2,
@@ -263,7 +501,7 @@ public sealed class RiotMatchDomainMapperTests
             VisionScore: 24,
             WardsPlaced: 9,
             WardsKilled: 2,
-            TotalDamageDealt: 25000,
+            TotalDamageDealt: totalDamageDealt,
             TotalDamageDealtToChampions: 18000,
             TotalDamageTaken: 22000,
             TimePlayed: TimeSpan.FromSeconds(1800),

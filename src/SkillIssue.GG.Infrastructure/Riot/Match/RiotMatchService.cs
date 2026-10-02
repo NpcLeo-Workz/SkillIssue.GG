@@ -93,6 +93,42 @@ public sealed class RiotMatchService(RiotApiClient riotApiClient, IOptions<RiotA
                 throw new InvalidOperationException(
                     "Riot Match API returned an invalid champion ID.");
             }
+
+            var itemIds = new[]
+            {
+                participant.Item0,
+                participant.Item1,
+                participant.Item2,
+                participant.Item3,
+                participant.Item4,
+                participant.Item5,
+                participant.Item6
+            };
+
+            if (itemIds.Any(itemId => itemId < 0))
+            {
+                throw new InvalidOperationException(
+                    "Riot Match API returned an invalid item ID.");
+            }
+
+            var runeIds = participant.Perks?.Styles?
+                .Where(style => style.Selections is not null)
+                .SelectMany(style => style.Selections!)
+                .Select(selection => selection.Perk)
+                .ToArray()
+                ?? [];
+
+            if (runeIds.Any(runeId => runeId <= 0))
+            {
+                throw new InvalidOperationException(
+                    "Riot Match API returned an invalid rune ID.");
+            }
+
+            if (runeIds.Distinct().Count() != runeIds.Length)
+            {
+                throw new InvalidOperationException(
+                    "Riot Match API returned duplicate rune IDs.");
+            }
         }
     }
 
@@ -139,15 +175,13 @@ public sealed class RiotMatchService(RiotApiClient riotApiClient, IOptions<RiotA
             dto.Item5,
             dto.Item6
         }
-        .Where(itemId => itemId > 0)
+        .Where(itemId => itemId != 0)
         .ToArray();
 
         var runeIds = dto.Perks?.Styles?
             .Where(style => style.Selections is not null)
             .SelectMany(style => style.Selections!)
             .Select(selection => selection.Perk)
-            .Where(runeId => runeId > 0)
-            .Distinct()
             .ToArray()
             ?? [];
 
