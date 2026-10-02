@@ -1,4 +1,3 @@
-using SkillIssue.GG.Application.Riot.Models;
 using SkillIssue.GG.Application.Statistics;
 using SkillIssue.GG.Domain.Entities;
 
@@ -45,7 +44,7 @@ public sealed class PlayerMatchStatisticsCalculatorTests
 
         Assert.Equal(12000, result.GoldEarned);
         Assert.Equal(400.0, result.GoldPerMinute);
-
+        Assert.Equal(participant.TimePlayed, result.TimePlayed);
         Assert.Equal(match.Duration, result.GameDuration);
     }
 

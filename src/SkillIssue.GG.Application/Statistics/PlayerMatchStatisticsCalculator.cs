@@ -51,6 +51,7 @@ public static class PlayerMatchStatisticsCalculator
             csPerMinute,
             participant.GoldEarned,
             goldPerMinute,
+            participant.TimePlayed,
             match.Duration);
     }
 }

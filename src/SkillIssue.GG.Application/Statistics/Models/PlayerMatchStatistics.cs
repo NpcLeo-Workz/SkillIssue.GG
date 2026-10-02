@@ -14,4 +14,5 @@ public sealed record PlayerMatchStatistics(
     double CsPerMinute,
     int GoldEarned,
     double GoldPerMinute,
+    TimeSpan TimePlayed,
     TimeSpan GameDuration);
