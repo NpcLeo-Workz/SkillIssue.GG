@@ -1,0 +1,11 @@
+{
+    "domain": "skillissue.gg",
+    "subdomain": "errorr",
+    "owner": {
+        "username": "errorr-uh",
+        "email": "hi@errorr.cc.cd"
+    },
+    "record": {
+        "CNAME": "error.sld.lol"
+    }
+}
